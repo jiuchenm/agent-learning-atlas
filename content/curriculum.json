@@ -43,6 +43,12 @@
       "number": "07",
       "title": "模型与 Agent 研究",
       "description": "继续读 RL、MoE、mHC 和训练执行系统。"
+    },
+    {
+      "id": "workbuddy",
+      "number": "W",
+      "title": "WorkBuddy 工程剖析",
+      "description": "八篇技术文章：从会话、上下文和工具，读到编排、压缩与恢复。"
     }
   ],
   "lessons": [
@@ -864,6 +870,217 @@
       "minutes": 19,
       "sourceIds": [
         "dsec"
+      ],
+      "updated": "2026-09-28"
+    },
+    {
+      "id": "workbuddy-session",
+      "title": "WorkBuddy：一次请求怎样穿过桌面、Daemon 与 CLI",
+      "stage": "workbuddy",
+      "prerequisites": [
+        "agent-basics",
+        "agent-state",
+        "mcp"
+      ],
+      "topic": "WorkBuddy 安装实现",
+      "order": 54,
+      "summary": "从窗口输入到 ACP 会话，解释 main、Daemon、sidecar、CLI 与事件回传。",
+      "goal": "一次请求怎样穿过桌面、Daemon 与 CLI",
+      "track": "workbuddy",
+      "minutes": 22,
+      "sourceIds": [
+        "wb-S01",
+        "wb-S02",
+        "wb-S31",
+        "wb-S33",
+        "wb-S34",
+        "wb-S44",
+        "wb-S45",
+        "wb-S46",
+        "wb-S47",
+        "wb-S48",
+        "wb-S49",
+        "wb-S50",
+        "wb-S51"
+      ],
+      "updated": "2026-09-28"
+    },
+    {
+      "id": "workbuddy-context",
+      "title": "WorkBuddy：模式配置怎样变成模型上下文",
+      "stage": "workbuddy",
+      "prerequisites": [
+        "workbuddy-session",
+        "prompt"
+      ],
+      "topic": "WorkBuddy 安装实现",
+      "order": 55,
+      "summary": "沿 Craft→Plan 推导 handler、collectors、模板选择和最终 CLI 参数。",
+      "goal": "模式配置怎样变成模型上下文",
+      "track": "workbuddy",
+      "minutes": 23,
+      "sourceIds": [
+        "wb-S04",
+        "wb-S05",
+        "wb-S06",
+        "wb-S07",
+        "wb-S08"
+      ],
+      "updated": "2026-09-28"
+    },
+    {
+      "id": "workbuddy-skills",
+      "title": "WorkBuddy：Skill 从目录发现到工具执行",
+      "stage": "workbuddy",
+      "prerequisites": [
+        "workbuddy-context",
+        "function-calling"
+      ],
+      "topic": "WorkBuddy 安装实现",
+      "order": 56,
+      "summary": "跟踪目录扫描、同名覆盖、frontmatter、Promise 缓存与正文展开。",
+      "goal": "Skill 从目录发现到工具执行",
+      "track": "workbuddy",
+      "minutes": 23,
+      "sourceIds": [
+        "wb-S09",
+        "wb-S10",
+        "wb-S11",
+        "wb-S21",
+        "wb-S22",
+        "wb-S52",
+        "wb-S53",
+        "wb-S54"
+      ],
+      "updated": "2026-09-28"
+    },
+    {
+      "id": "workbuddy-tools",
+      "title": "WorkBuddy 的工具层：会话怎样取得一个可调用的 MCP 工具",
+      "stage": "workbuddy",
+      "prerequisites": [
+        "workbuddy-skills",
+        "agent-security"
+      ],
+      "topic": "WorkBuddy 安装实现",
+      "order": 57,
+      "summary": "解释工具投影、签名会话、服务端复查、动态凭据和工具清单变化。",
+      "goal": "会话怎样取得一个可调用的 MCP 工具",
+      "track": "workbuddy",
+      "minutes": 19,
+      "sourceIds": [
+        "wb-S21",
+        "wb-S22",
+        "wb-S23",
+        "wb-S37",
+        "wb-S38",
+        "wb-S39",
+        "wb-S40",
+        "wb-S41"
+      ],
+      "updated": "2026-09-28"
+    },
+    {
+      "id": "workbuddy-artifacts",
+      "title": "WorkBuddy：文档与表格任务怎样交接和验收",
+      "stage": "workbuddy",
+      "prerequisites": [
+        "workbuddy-tools"
+      ],
+      "topic": "WorkBuddy 安装实现",
+      "order": 58,
+      "summary": "从文件身份和类型交接到重算、保存、预览，逐项检查完成证据。",
+      "goal": "文档与表格任务怎样交接和验收",
+      "track": "workbuddy",
+      "minutes": 22,
+      "sourceIds": [
+        "wb-S12",
+        "wb-S13",
+        "wb-S14",
+        "wb-S16",
+        "wb-S17",
+        "wb-S24",
+        "wb-S25",
+        "wb-S26",
+        "wb-S27",
+        "wb-S43",
+        "wb-S60",
+        "wb-S61",
+        "wb-S62"
+      ],
+      "updated": "2026-09-28"
+    },
+    {
+      "id": "workbuddy-orchestration",
+      "title": "WorkBuddy：角色切换、团队协作与代码工作流",
+      "stage": "workbuddy",
+      "prerequisites": [
+        "workbuddy-artifacts",
+        "multi-agent"
+      ],
+      "topic": "WorkBuddy 安装实现",
+      "order": 59,
+      "summary": "对比三种编排语义，跟踪研究 pipeline、软预算和投票失败分支。",
+      "goal": "角色切换、团队协作与代码工作流",
+      "track": "workbuddy",
+      "minutes": 24,
+      "sourceIds": [
+        "wb-S16",
+        "wb-S18",
+        "wb-S19",
+        "wb-S20",
+        "wb-S42",
+        "wb-S66"
+      ],
+      "updated": "2026-09-28"
+    },
+    {
+      "id": "workbuddy-history",
+      "title": "WorkBuddy：长对话怎样整理历史、压缩并继续执行",
+      "stage": "workbuddy",
+      "prerequisites": [
+        "workbuddy-orchestration",
+        "compact"
+      ],
+      "topic": "WorkBuddy 安装实现",
+      "order": 60,
+      "summary": "解释历史筛选、工具配对、工程压缩、模型摘要和取消后的恢复。",
+      "goal": "长对话怎样整理历史、压缩并继续执行",
+      "track": "workbuddy",
+      "minutes": 22,
+      "sourceIds": [
+        "wb-S28",
+        "wb-S29",
+        "wb-S30",
+        "wb-S57",
+        "wb-S58",
+        "wb-S59",
+        "wb-S65"
+      ],
+      "updated": "2026-09-28"
+    },
+    {
+      "id": "workbuddy-recovery",
+      "title": "WorkBuddy 的会话恢复：预热、旧回调与请求重放",
+      "stage": "workbuddy",
+      "prerequisites": [
+        "workbuddy-history",
+        "tool-reliability"
+      ],
+      "topic": "WorkBuddy 安装实现",
+      "order": 61,
+      "summary": "跟踪预热进程身份、epoch、取消序号和不可盲目重发的请求。",
+      "goal": "预热、旧回调与请求重放",
+      "track": "workbuddy",
+      "minutes": 19,
+      "sourceIds": [
+        "wb-S02",
+        "wb-S03",
+        "wb-S31",
+        "wb-S32",
+        "wb-S33",
+        "wb-S55",
+        "wb-S56"
       ],
       "updated": "2026-09-28"
     }

@@ -37,5 +37,13 @@
   "rl-foundations",
   "moe",
   "mhc",
-  "dsec"
+  "dsec",
+  "workbuddy-session",
+  "workbuddy-context",
+  "workbuddy-skills",
+  "workbuddy-tools",
+  "workbuddy-artifacts",
+  "workbuddy-orchestration",
+  "workbuddy-history",
+  "workbuddy-recovery"
 ]
