@@ -1,0 +1,24 @@
+{
+  "name": "agent-learning-atlas",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1 --port 4318 --strictPort",
+    "test": "node --test tests/*.test.mjs",
+    "build": "node scripts/check-public.mjs && vite build && node scripts/check-public.mjs --dist",
+    "preview": "vite preview --host 127.0.0.1 --port 4318 --strictPort"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "dompurify": "^3.2.6",
+    "katex": "^0.16.22",
+    "marked": "^16.3.0",
+    "mermaid": "11.17.2"
+  },
+  "devDependencies": {
+    "vite": "^7.1.7"
+  }
+}
