@@ -1065,5 +1065,142 @@
       "wb-S56"
     ],
     "updated": "2026-09-28"
+  },
+  {
+    "id": "enterprise-agent-tenancy",
+    "title": "企业 Agent 多租户：甲公司的助手为什么看不到乙公司的资料",
+    "stage": "agent-platform",
+    "prerequisites": [
+      "agent-security",
+      "mcp",
+      "agent-state"
+    ],
+    "topic": "腾讯 JD · Agent 平台工程",
+    "order": 63,
+    "summary": "沿一次报销查询检查身份、检索、工具、状态和部署边界。",
+    "goal": "甲公司的助手为什么看不到乙公司的资料",
+    "track": "agent-platform",
+    "minutes": 26,
+    "sourceIds": [
+      "jd-tencent-managed",
+      "jd-tencent-enterprise",
+      "jd-tencent-suite",
+      "tenancy-overview",
+      "tenancy-models",
+      "tenancy-identity",
+      "tenancy-storage",
+      "tenancy-approaches",
+      "tenancy-aws"
+    ],
+    "updated": "2026-09-29"
+  },
+  {
+    "id": "agent-runtime-sandbox",
+    "title": "Agent Runtime 与沙箱：运行代码时谁守住边界",
+    "stage": "agent-platform",
+    "prerequisites": [
+      "agent-state",
+      "tool-reliability",
+      "agent-security"
+    ],
+    "topic": "腾讯 JD · Agent 平台工程",
+    "order": 64,
+    "summary": "跟随一次代码执行，理解环境创建、隔离、恢复和回收。",
+    "goal": "运行代码时谁守住边界",
+    "track": "agent-platform",
+    "minutes": 24,
+    "sourceIds": [
+      "jd-tencent-managed",
+      "runtime-firecracker-design",
+      "runtime-firecracker-snapshot",
+      "runtime-gvisor",
+      "runtime-e2b-index",
+      "runtime-e2b-lifecycle",
+      "runtime-e2b-persistence",
+      "runtime-e2b-snapshots",
+      "dsec"
+    ],
+    "updated": "2026-09-29"
+  },
+  {
+    "id": "agent-protocols",
+    "title": "ACP、A2A、MCP：一次任务经过哪几层协议",
+    "stage": "agent-platform",
+    "prerequisites": [
+      "mcp",
+      "multi-agent",
+      "agent-state"
+    ],
+    "topic": "腾讯 JD · Agent 平台工程",
+    "order": 65,
+    "summary": "从 IDE、远端 Agent 到文档工具，分清会话、任务与调用。",
+    "goal": "一次任务经过哪几层协议",
+    "track": "agent-platform",
+    "minutes": 25,
+    "sourceIds": [
+      "jd-tencent-managed",
+      "protocol-a2a",
+      "protocol-acp-intro",
+      "protocol-acp-overview",
+      "protocol-acp-prompt",
+      "protocol-acp-tools",
+      "mcp-source-2",
+      "mcp-source-5"
+    ],
+    "updated": "2026-09-29"
+  },
+  {
+    "id": "agent-observability",
+    "title": "Agent 可观测性：用户说卡住了，怎样定位断点",
+    "stage": "agent-platform",
+    "prerequisites": [
+      "agent-state",
+      "tool-reliability",
+      "agent-metrics"
+    ],
+    "topic": "腾讯 JD · Agent 平台工程",
+    "order": 66,
+    "summary": "用一次工具超时串起 Trace、日志、指标、Eval 和 Guardrail。",
+    "goal": "用户说卡住了，怎样定位断点",
+    "track": "agent-platform",
+    "minutes": 22,
+    "sourceIds": [
+      "jd-tencent-managed",
+      "otel-traces",
+      "otel-metrics",
+      "otel-genai-agent",
+      "otel-genai-client",
+      "otel-genai-metrics",
+      "agent-metrics-source-3"
+    ],
+    "updated": "2026-09-29"
+  },
+  {
+    "id": "agent-harness-delivery",
+    "title": "AI Coding Harness：从一句需求到可验收代码",
+    "stage": "agent-platform",
+    "prerequisites": [
+      "prompt",
+      "context-window",
+      "agent-metrics",
+      "tool-reliability"
+    ],
+    "topic": "腾讯 JD · Agent 平台工程",
+    "order": 67,
+    "summary": "看一项接口改动如何经过 spec、上下文、执行、测试和发布关卡。",
+    "goal": "从一句需求到可验收代码",
+    "track": "agent-platform",
+    "minutes": 25,
+    "sourceIds": [
+      "jd-tencent-managed",
+      "harness-long-running",
+      "harness-context",
+      "agent-metrics-source-3",
+      "harness-codex-agents",
+      "harness-claude-code",
+      "harness-github-workflows",
+      "harness-github-environments"
+    ],
+    "updated": "2026-09-29"
   }
 ]

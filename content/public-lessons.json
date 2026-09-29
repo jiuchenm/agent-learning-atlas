@@ -46,5 +46,10 @@
   "workbuddy-artifacts",
   "workbuddy-orchestration",
   "workbuddy-history",
-  "workbuddy-recovery"
+  "workbuddy-recovery",
+  "enterprise-agent-tenancy",
+  "agent-runtime-sandbox",
+  "agent-protocols",
+  "agent-observability",
+  "agent-harness-delivery"
 ]
