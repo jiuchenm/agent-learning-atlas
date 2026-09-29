@@ -4,6 +4,8 @@
 
 本文跟踪这一个假设请求。假设文件内容是“今天计划 10 项任务，完成 8 项；其余 2 项等待数据”，预期回答是“今天完成 8 项任务，另有 2 项因等待数据尚未完成”。文件、请求和回答都是教学示例，没有实际运行 WorkBuddy。实现依据是 2026-09-28 只读检查的 Windows 安装包 5.6.2；本文的行号相对于 ASAR 内部 entry。链接中的 S 编号指向[公开证据定位目录](https://jiuchenm.github.io/workbuddy-study/#S01)，它没有公开完整源码，读者不能把目录中的说明当成独立复现。
 
+如果还不熟悉主进程、renderer 与操作系统进程的区别，可先读 [Electron 与 Edge/Chromium 的进程管理](#/lesson/electron-chromium-processes)，再回到本篇跟踪具体调用。
+
 ## 窗口接到输入之后，谁继续工作
 
 WorkBuddy 使用 Electron。Electron 的主进程（main process）负责应用入口、窗口和桌面能力；渲染进程（renderer process）运行页面，处理输入框、消息列表等界面。预加载脚本（preload script）在页面加载前运行，通过桥接接口把限定的桌面能力交给页面。Preload 是运行位置和职责的名称，并不是第三种独立进程。因此，“输入框里的一段 JavaScript”与“启动本地命令的代码”不能直接视为同一个执行环境。[Electron 进程模型](https://www.electronjs.org/docs/latest/tutorial/process-model)

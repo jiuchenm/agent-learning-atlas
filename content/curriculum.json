@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "updated": "2026-09-28",
+  "updated": "2026-09-29",
   "stages": [
     {
       "id": "foundation",
@@ -48,7 +48,7 @@
       "id": "workbuddy",
       "number": "W",
       "title": "WorkBuddy 工程剖析",
-      "description": "八篇技术文章：从会话、上下文和工具，读到编排、压缩与恢复。"
+      "description": "先理解 Electron 与 Chromium 的进程管理，再沿八篇安装实现文章研究会话、工具、编排与恢复。"
     }
   ],
   "lessons": [
@@ -874,16 +874,51 @@
       "updated": "2026-09-28"
     },
     {
+      "id": "electron-chromium-processes",
+      "title": "Electron 与 Edge/Chromium：进程怎样创建、通信和退出",
+      "stage": "workbuddy",
+      "prerequisites": [],
+      "topic": "桌面与浏览器进程管理",
+      "order": 54,
+      "summary": "从两个标签页和跨站 iframe 出发，解释进程创建、IPC、隔离、导航、崩溃和关窗后的后台状态。",
+      "goal": "窗口、网页与操作系统进程怎样对应，以及谁管理它们的生命周期",
+      "track": "workbuddy",
+      "minutes": 28,
+      "sourceIds": [
+        "electron-process-source-1",
+        "electron-process-source-2",
+        "electron-process-source-3",
+        "electron-process-source-4",
+        "electron-process-source-5",
+        "electron-process-source-6",
+        "electron-process-source-7",
+        "electron-process-source-8",
+        "electron-process-source-9",
+        "electron-process-source-10",
+        "electron-process-source-11",
+        "electron-process-source-12",
+        "electron-process-source-13",
+        "electron-process-source-14",
+        "electron-process-source-15",
+        "electron-process-source-16",
+        "electron-process-source-17",
+        "electron-process-source-18",
+        "electron-process-source-19"
+      ],
+      "updated": "2026-09-29"
+    },
+    {
       "id": "workbuddy-session",
       "title": "WorkBuddy：一次请求怎样穿过桌面、Daemon 与 CLI",
       "stage": "workbuddy",
       "prerequisites": [
+        "electron-chromium-processes",
         "agent-basics",
         "agent-state",
         "mcp"
       ],
       "topic": "WorkBuddy 安装实现",
-      "order": 54,
+      "order": 55,
       "summary": "从窗口输入到 ACP 会话，解释 main、Daemon、sidecar、CLI 与事件回传。",
       "goal": "一次请求怎样穿过桌面、Daemon 与 CLI",
       "track": "workbuddy",
@@ -914,7 +949,7 @@
         "prompt"
       ],
       "topic": "WorkBuddy 安装实现",
-      "order": 55,
+      "order": 56,
       "summary": "沿 Craft→Plan 推导 handler、collectors、模板选择和最终 CLI 参数。",
       "goal": "模式配置怎样变成模型上下文",
       "track": "workbuddy",
@@ -937,7 +972,7 @@
         "function-calling"
       ],
       "topic": "WorkBuddy 安装实现",
-      "order": 56,
+      "order": 57,
       "summary": "跟踪目录扫描、同名覆盖、frontmatter、Promise 缓存与正文展开。",
       "goal": "Skill 从目录发现到工具执行",
       "track": "workbuddy",
@@ -963,7 +998,7 @@
         "agent-security"
       ],
       "topic": "WorkBuddy 安装实现",
-      "order": 57,
+      "order": 58,
       "summary": "解释工具投影、签名会话、服务端复查、动态凭据和工具清单变化。",
       "goal": "会话怎样取得一个可调用的 MCP 工具",
       "track": "workbuddy",
@@ -988,7 +1023,7 @@
         "workbuddy-tools"
       ],
       "topic": "WorkBuddy 安装实现",
-      "order": 58,
+      "order": 59,
       "summary": "从文件身份和类型交接到重算、保存、预览，逐项检查完成证据。",
       "goal": "文档与表格任务怎样交接和验收",
       "track": "workbuddy",
@@ -1019,7 +1054,7 @@
         "multi-agent"
       ],
       "topic": "WorkBuddy 安装实现",
-      "order": 59,
+      "order": 60,
       "summary": "对比三种编排语义，跟踪研究 pipeline、软预算和投票失败分支。",
       "goal": "角色切换、团队协作与代码工作流",
       "track": "workbuddy",
@@ -1043,7 +1078,7 @@
         "compact"
       ],
       "topic": "WorkBuddy 安装实现",
-      "order": 60,
+      "order": 61,
       "summary": "解释历史筛选、工具配对、工程压缩、模型摘要和取消后的恢复。",
       "goal": "长对话怎样整理历史、压缩并继续执行",
       "track": "workbuddy",
@@ -1068,7 +1103,7 @@
         "tool-reliability"
       ],
       "topic": "WorkBuddy 安装实现",
-      "order": 61,
+      "order": 62,
       "summary": "跟踪预热进程身份、epoch、取消序号和不可盲目重发的请求。",
       "goal": "预热、旧回调与请求重放",
       "track": "workbuddy",
