@@ -11,12 +11,27 @@ import curriculum from '../content/curriculum.json';
 import {selectLessons,neighbors,noteIds} from './curriculum.js';
 import {interviewPrompts} from './interview.js';
 import {renderDiagrams} from './diagrams.js';
+import {THEME_KEY,resolveTheme,oppositeTheme} from './theme.js';
 const allLessons=[...catalog,...archive];
 const hasInternal=catalog.some(l=>l.internal), hasArchive=archive.length>0, hasWorkbuddy=catalog.some(l=>l.stage==='workbuddy');
 import {emptyState,validateState,mergeState,kvBytes,advantages} from './logic.js';
 const articles=import.meta.glob('../content/lessons/*.md',{query:'?raw',import:'default',eager:true});
 const ids=noteIds(catalog,archive), key='agent-learning-atlas.v1';
 let state=emptyState(), storageOk=true, search='', filter='all';
+const colorScheme=window.matchMedia('(prefers-color-scheme: dark)');
+let savedTheme;
+try { savedTheme=localStorage.getItem(THEME_KEY); } catch {}
+let theme=resolveTheme(savedTheme,colorScheme.matches);
+function applyTheme(next){
+ theme=next;
+ document.documentElement.dataset.theme=next;
+ document.documentElement.style.colorScheme=next;
+ document.querySelector('meta[name="theme-color"]')?.setAttribute('content',next==='dark'?'#191a18':'#f3f1e9');
+ const button=document.querySelector('#theme-toggle');
+ if(button){button.textContent=next==='dark'?'☀ 日间':'☾ 夜间';button.setAttribute('aria-label',next==='dark'?'切换到日间模式':'切换到夜间模式');button.setAttribute('aria-pressed',String(next==='dark'));}
+}
+applyTheme(theme);
+colorScheme.addEventListener('change',event=>{if(!savedTheme)applyTheme(resolveTheme(null,event.matches));});
 try { const old=localStorage.getItem(key); if(old) state=validateState(JSON.parse(old),ids); } catch { storageOk=false; }
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const tracks=Object.fromEntries(curriculum.stages.map(s=>[s.id,s.title]));
@@ -28,9 +43,11 @@ const statusText={unread:'未读',review:'待巩固',understood:'能复述'};
 function toast(message){const el=document.querySelector('#toast');el.textContent=message;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),3500);}
 function card(l){return '<a class="lesson-card" href="#/lesson/'+l.id+'"><span class="card-top"><span class="mono">'+String(l.order).padStart(2,'0')+'</span><span>'+l.minutes+' 分钟 · '+statusText[entry(l.id).status]+'</span></span><h3>'+esc(l.title)+'</h3><p>'+esc(l.summary)+'</p><span class="card-bottom">'+esc(l.goal||l.anchor||'独立知识点')+'<b>↗</b></span></a>';}
 function shell(active){
- document.querySelector('#app').innerHTML='<a class="skip" href="#main">跳到正文</a><aside class="sidebar"><a href="#/" class="brand"><span class="brand-mark">知</span><span>知行图谱<small>AGENT LEARNING ATLAS</small></span></a><div class="personal">NATHAN’S LEARNING SPACE</div><nav aria-label="主导航">'+[['home','学习首页','◈','#/'],['path','知识路线','⌁','#/path'],['internal','M365 内部架构','▦','#/path/internal'],['interview','面试自测','◎','#/interview'],['lab','交互实验室','◇','#/lab'],['sources','阅读与来源','▤','#/sources'],['notes','我的笔记','▧','#/notes']].filter(([id])=>id!=='internal'||hasInternal).map(([id,label,icon,url])=>'<a '+(active===id?'class="active" aria-current="page"':'')+' href="'+url+'"><i>'+icon+'</i>'+label+'</a>').join('')+'</nav><div class="sidebar-divider"></div><p class="nav-label">按阶段学习</p>'+curriculum.stages.map(s=>'<a class="track-link" href="#/path/'+s.id+'">'+s.number+' · '+s.title+'</a>').join('')+(hasArchive?'<a class="track-link" href="#/archive">旧版文章与笔记</a>':'')+'<div class="sidebar-bottom"><div class="small-badge">LOCAL-FIRST</div><p>从一个问题出发，<br>把机制讲清楚。</p><small>课程重构 · 2026.09.28</small></div></aside><div class="workspace"><header class="topbar"><button id="menu" class="icon-btn" aria-label="切换导航">☰</button><span class="breadcrumb">学习是一条连续的路径</span><a class="search-link" href="#/path">搜索课程 <kbd>/</kbd></a></header><main id="main" tabindex="-1"></main><footer>知行图谱 <span>·</span> 基于公开证据与实际项目 <span>·</span> 阅读状态由你定义</footer></div><div id="toast" role="status" aria-live="polite"></div>';
+ document.querySelector('#app').innerHTML='<a class="skip" href="#main">跳到正文</a><aside class="sidebar"><a href="#/" class="brand"><span class="brand-mark">知</span><span>知行图谱<small>AGENT LEARNING ATLAS</small></span></a><div class="personal">NATHAN’S LEARNING SPACE</div><nav aria-label="主导航">'+[['home','学习首页','◈','#/'],['path','知识路线','⌁','#/path'],['internal','M365 内部架构','▦','#/path/internal'],['interview','面试自测','◎','#/interview'],['lab','交互实验室','◇','#/lab'],['sources','阅读与来源','▤','#/sources'],['notes','我的笔记','▧','#/notes']].filter(([id])=>id!=='internal'||hasInternal).map(([id,label,icon,url])=>'<a '+(active===id?'class="active" aria-current="page"':'')+' href="'+url+'"><i>'+icon+'</i>'+label+'</a>').join('')+'</nav><div class="sidebar-divider"></div><p class="nav-label">按阶段学习</p>'+curriculum.stages.map(s=>'<a class="track-link" href="#/path/'+s.id+'">'+s.number+' · '+s.title+'</a>').join('')+(hasArchive?'<a class="track-link" href="#/archive">旧版文章与笔记</a>':'')+'<div class="sidebar-bottom"><div class="small-badge">LOCAL-FIRST</div><p>从一个问题出发，<br>把机制讲清楚。</p><small>课程重构 · 2026.09.28</small></div></aside><div class="workspace"><header class="topbar"><button id="menu" class="icon-btn" aria-label="切换导航">☰</button><span class="breadcrumb">学习是一条连续的路径</span><div class="top-actions"><button id="theme-toggle" class="theme-toggle" type="button" aria-label="切换颜色模式"></button><a class="search-link" href="#/path">搜索课程 <kbd>/</kbd></a></div></header><main id="main" tabindex="-1"></main><footer>知行图谱 <span>·</span> 基于公开证据与实际项目 <span>·</span> 阅读状态由你定义</footer></div><div id="toast" role="status" aria-live="polite"></div>';
  document.querySelector('#menu').onclick=()=>document.body.classList.toggle('nav-open');
  document.querySelector('.skip').onclick=event=>{event.preventDefault();document.querySelector('#main').focus();};
+ applyTheme(theme);
+ document.querySelector('#theme-toggle').onclick=()=>{const next=oppositeTheme(theme);savedTheme=next;try{localStorage.setItem(THEME_KEY,next);}catch{}applyTheme(next);};
 }
 function stageBlock(stage,list){
  const extensions=stage.id==='research'&&hasArchive?'<div class="research-branches"><h3>继续分支阅读</h3><p>以下保留旧版资料，作为后续选题入口；尚未按独立知识点重写，内容中的版本与证据日期需分别核对。</p><div><a href="#/lesson/model-map">国内路线 · DeepSeek / Qwen / GLM / Hunyuan ↗</a><a href="#/lesson/frontier">国际路线 · OpenAI / Claude 的公开方法与未知 ↗</a><a href="#/lesson/multimodal">多模态表示 ↗</a><a href="#/lesson/efficiency">KV cache 与推理效率 ↗</a></div></div>':'';
