@@ -1,12 +1,14 @@
 # WorkBuddy：模式配置怎样变成模型上下文
 
-假设你让 WorkBuddy 修改一份订单导出脚本，先在 Craft 中讨论实现，随后切到 Plan，要求先列方案。检查工具配置时却仍能看见 `Write` 和 `Bash`；再看系统模板，竟然沿用了 Craft 的选择入口。这是否意味着切换失败？要回答它，必须跟踪模式字段怎样分别进入提示词、工具集合和权限配置。页面上的一个模式名称，未必对应一份独立 Prompt。
+WorkBuddy 是桌面 Agent 应用。你在界面里选 Craft 或 Plan，应用就要把这个选择转成模型可接收的指令和工具配置，并为执行工具设置权限。这里的**模型上下文**指一次调用时提供给模型的材料，例如系统提示词、用户消息和工具定义。本篇只跟踪模式配置参与装配的部分：模板怎样得到变量并变成文本，工具与权限怎样另行合并，结果怎样被交给下游。聊天历史的完整处理不在这条链路里。
 
-WorkBuddy 是桌面 Agent 应用；Craft 和 Plan 是界面提供的两种工作模式，前者用于直接推进任务，后者强调先形成方案。模式名只是用户选择的入口，模型最终看见的指令、可用工具和权限要由后续代码组合。本篇以 2026-09-28 只读核验的 WorkBuddy 5.6.2 安装包为依据，跟踪其中的 legacy mode handler 路径。安装包也有由 CLI 组合 addons 的分支，后文会说明它怎样影响最终输入。所有会话参数和切换结果都是按代码推导的假设，没有读取当前用户配置、运行供应商代码或捕获实际模型请求。正文中的行号相对安装包条目，例如 `main/tar.js`；[公开报告](https://jiuchenm.github.io/workbuddy-study/#S04)提供证据定位目录，并未公开这些源码全文。
+Craft 用于直接推进任务，Plan 强调先形成方案。假设你先在 Craft 中讨论订单导出脚本，随后切到 Plan，说“先列方案”。这时工具配置仍列出 `Write` 和 `Bash`，系统模板的选择入口也仍是 Craft。要判断切换是否失败，需要分清三个问题：提示词告诉模型怎样做；工具配置提供可用工具的候选；权限配置交给运行时判断怎样执行。**模式名称不能单独回答这三个问题。**
+
+依据是 2026-09-28 原核验记录中的 WorkBuddy 5.6.2 安装包；2026-10-01 改稿时重查关键片段，包 hash 仍一致。下面跟踪的是 legacy mode handler 路径，也就是由宿主的模式处理器生成配置的分支。安装包另有 CLI addon composition 分支，允许命令行运行端组合附加内容，后文会说明它怎样改变传参。例子的配置和结果均为静态代码手动推导；没有读取用户配置、运行供应商代码或捕获真实模型 payload。源码行号相对安装包条目；[公开报告](https://jiuchenm.github.io/workbuddy-study/#S04)提供证据定位目录，未公开这些源码全文。
 
 ## 从一次 Craft→Plan 切换开始
 
-先把教学条件固定下来：应用传给 `ModeService.resolveOptions` 的初始配置如下。`demo-model`、目录和会话 ID 都是假设值；没有显式 `tools`、`systemPrompt` 或 `expertId`，没有声明 MCP。假设下游也未启用 CLI addon composition，并且所需模板文件存在。这样可以观察模式自身提供的默认值，而不把其他覆盖项混进来。
+订单脚本例子先固定输入。`ModeService.resolveOptions` 接收以下教学配置，目录、模型和会话 ID 都是假设值；没有显式 `tools`、`systemPrompt` 或 `expertId`，也没有声明 MCP。假设所需模板存在，下游未启用 CLI addon composition。这样才能看清模式本身贡献了什么。
 
 ```json
 {
@@ -19,96 +21,89 @@ WorkBuddy 是桌面 Agent 应用；Craft 和 Plan 是界面提供的两种工作
 }
 ```
 
-`ModeService` 根据 `mode` 找 handler，缺省按 `craft` 处理。`DefaultModeHandler` 负责 craft、ask、plan、quick；`ExpertModeHandler` 负责 expert，且要求存在 `expertId`。handler 先生成模式配置，service 再把输入中非 `undefined` 的字段覆盖上去，最后把 handler 提供的 `mcpConfig`、`permissionMode`、`model` 再放回结果。因此显式工具集合可以覆盖模式默认工具，但权限不能简单按“输入最后出现，所以输入获胜”理解。未知模式在此入口会原样返回；上游归一化属于另一个边界。（`main/tar.js`，`ModeService` L44620–44638，`ExpertModeHandler` L44572–44602；[S05 定位](https://jiuchenm.github.io/workbuddy-study/#S05)。）
+两个 mode 字段职责不同。`mode` 指这轮采用 Craft、Plan 等哪种交互方式；`welcomeMode` 指 code、work、design 哪种任务方向。切到 Plan 后，任务仍是修改代码，后者保持 code。归一化函数还把历史值 coding、working 转为 code、work。只记“用户选了 Plan”，会遗漏模板选择所需的任务方向。（`main/tar.js` L22540–22546；[S06 定位](https://jiuchenm.github.io/workbuddy-study/#S06)。）
 
-输入里的两个 mode 也需要分开。`mode` 表示本轮交互场景，`welcomeMode` 表示 code、work、design 这一类任务方向；本例切换交互方式，仍然处理代码，所以 welcomeMode 保持 code。归一化函数还把历史值 coding、working 转为 code、work。这样的拆分允许同一种交互模式选择不同任务模板，却也意味着排查时只记下“Plan”会丢失一部分选择条件。（`main/tar.js`，`normalizeWelcomeMode` L22540–22546；[S06 定位](https://jiuchenm.github.io/workbuddy-study/#S06)。）
+`ModeService` 是协调这次装配的服务。它按 `mode` 选择模式处理器（handler），由处理器生成提示词、工具和权限的默认配置。`DefaultModeHandler` 处理 craft、ask、plan、quick；`ExpertModeHandler` 处理 expert，且要求传入 expertId。缺省模式按 craft 处理；这个入口遇到未知模式会原样返回输入，上游的归一化是另一个环节。（`main/tar.js` L44572–44602、L44620–44638；[S05 定位](https://jiuchenm.github.io/workbuddy-study/#S05)。）
 
-现在只把输入的 `mode` 改为 `plan`，其他条件不变。`DefaultModeHandler.resolve` 把 requestedMode 分成两路：`promptMode` 得到 craft，`toolsMode` 保留 plan，并把 `permissionMode` 强制设为 plan。下面是原创、简化的控制流伪代码，只表达本例，不包含完整的覆盖、MCP 或错误处理：
+现在只把输入的 mode 改为 plan。`DefaultModeHandler.resolve` 将选择拆成两路：给提示词渲染器的 `promptMode` 是 craft，查工具表的 `toolsMode` 是 plan，权限则强制为 plan。下表是按已读代码推导的结果；模板 kind 是渲染器用来查找模板的类别名。
 
-```python
-def explain_switch(requested_mode):
-    prompt_mode = "craft" if requested_mode == "plan" else requested_mode
-    tool_names = default_tools_for(requested_mode)
-    permission = default_permission_for(requested_mode)
-    template_kind = choose_template(prompt_mode, expert_id=None, welcome="code")
-    variables = collect_in_order()
-    return render(template_kind, variables), tool_names, permission
-```
-
-按本例条件，装配结果是：
-
-| 项目 | Craft 输入 | 切到 Plan 后 |
+| 装配项 | Craft 输入 | 切到 Plan 后 |
 | --- | --- | --- |
 | 请求模式 | craft | plan |
-| 传给 renderer 的模式 | craft | craft |
+| renderer 接收的模式 | craft | craft |
 | 模板 kind | normal-code | normal-code |
 | 默认工具 | CRAFT_TOOLS | CRAFT_TOOLS 加 EnterPlanMode、ExitPlanMode |
 | permissionMode | bypassPermissions | plan |
 
-这里没有切换模型权重，也没有保证两次渲染出的文本逐字相同：日期、记忆和环境变量仍可能变化。能够确定的是模板选择入口相同，工具模式和权限发生变化。Plan 的含义由多处配置共同表达。（`main/tar.js`，`DefaultModeHandler.resolve` L44527–44556；[S05 定位](https://jiuchenm.github.io/workbuddy-study/#S05)。）
+`CRAFT_TOOLS` 包含 Read、Write、Bash 等工具，`PLAN_TOOLS` 继承它再加两个计划工具，因此切到 Plan 后仍能看见写工具。表中描述的是配置结果；要证明某次写操作实际获准，还需检查 CLI 的权限执行与工具结果。本例也没有切换模型权重，两次渲染出的文本仍可能因日期、环境、记忆变化而不同。（`main/tar.js` L22349–22418、L22508–22514、L44527–44556；[S05](https://jiuchenm.github.io/workbuddy-study/#S05)、[S06 定位](https://jiuchenm.github.io/workbuddy-study/#S06)。）
 
-回到订单脚本，用户输入“先列方案”之后，本例可推导到的输出是这份已解析配置：代码方向的普通模板、计划模式的工具集合、计划权限，以及原模型和工作目录。模型随后是否提出“先检查分页，再设计修改，最后验证”，属于另一层输出；本次没有发请求，不能伪造这段回答。配置解释解决的是模型在什么条件下工作，业务验证还要检查它实际读了什么、调用了什么，以及是否修改了文件。
+处理器返回后，ModeService 做字段覆盖（overlay）：先以生成的配置为底，再覆盖输入中非 `undefined` 的字段，最后重新放回处理器提供的 `mcpConfig`、`permissionMode`、`model`。所以显式 tools 能覆盖默认工具，显式权限却还受处理器结果约束。以下是原创教学伪代码，只表达这个合并顺序，不是可执行的供应商实现：
 
-## 工具名称、许可策略与行为指令分别负责什么
+```python
+generated = await handler.resolve(input_options)
+merged = copy(generated)
+for key, value in input_options.items():
+    if value is not undefined:
+        merged[key] = value
+for key in ["mcpConfig", "permissionMode", "model"]:
+    if generated.get(key) is not undefined:
+        merged[key] = generated[key]
+```
 
-工具集合告诉运行时配置了哪些能力名称；Prompt 告诉模型怎样处理任务；`permissionMode` 进入运行时的许可策略。前两者不能代替第三者。因此 Plan 集合里仍包含写文件与命令工具，并不能单独证明这些动作可以立即执行。反过来，一段“只做计划”的自然语言也不足以证明执行层会阻止写入。本篇只确认字段传递，没有审计 CLI 内每种工具的具体拒绝条件。
+按原条件，这一步输出的是已解析配置：普通代码模板的渲染结果、Plan 工具集合、plan 权限，以及输入的 demo-model。它尚未输出模型回答，也未执行订单脚本。（`main/tar.js` L44632–44638；[S05 定位](https://jiuchenm.github.io/workbuddy-study/#S05)。）
 
-安装包里的 `PLAN_TOOLS` 直接扩展 `CRAFT_TOOLS`，Expert 默认也使用 Plan 集合。Ask 在这张配置表中只有 Read、WebFetch、WebSearch、Glob、Grep；Quick 是空字符串。默认权限表给 Craft、Expert、Quick 配置 `bypassPermissions`，Ask 为 `default`，Plan 为 `plan`。这些是此版本的运行默认配置，不能当作当前用户实际会话配置；`bypassPermissions` 这个字段也没有证明连接器授权或其他执行边界被取消。（`main/tar.js`，`MODE_TOOLS_CONFIG` L22349–22409、`DEFAULT_MODE_PERMISSION_CONFIG` L22508–22514；[S06 定位](https://jiuchenm.github.io/workbuddy-study/#S06)。）
-
-覆盖顺序还有一个容易漏掉的条件。`isPermissionModeWeakerThanSceneDefault` 在场景默认是 bypassPermissions 时，把传入的 default 或 acceptEdits 判为需要忽略的值，handler 随后采用场景默认。无论怎样理解函数名中的 weaker，代码比较的就是这两个字符串。Plan 又有独立强制分支，所以即使本例额外传入 `permissionMode: "bypassPermissions"`，最终仍是 plan。排查时应看实际条件和合并结果，不能只读“用户显式值”这样的概括。（`main/tar.js` L22715–22718、L44546–44550、L44632–44637；[S05](https://jiuchenm.github.io/workbuddy-study/#S05)、[S06 定位](https://jiuchenm.github.io/workbuddy-study/#S06)。）
-
-退出 Plan 则还有恢复状态的问题。`normalizeDesiredConfig` 遇到 mode 为 plan 时直接归一化出 plan 权限；mode 已离开 plan、原权限却仍为 plan 时，尝试使用合法的 `permissionModeBeforePlan`，否则采用 bypassPermissions。这个字段保存切换前的许可信息，使“退出计划”不只是删掉一个字符串。但最终值仍要经过后面的 handler；只检查持久配置，不能代替检查整个装配结果。（`main/tar.js`，`normalizeDesiredConfig` L22617–22637；[S06 定位](https://jiuchenm.github.io/workbuddy-study/#S06)。）
+权限还需保留两个具体条件。`isPermissionModeWeakerThanSceneDefault` 在场景默认为 bypassPermissions 时，将显式 default、acceptEdits 判为应忽略的值；不要仅凭函数名猜含义。Plan 有单独强制分支，即使输入 bypassPermissions，也仍得到 plan。退出 Plan 时，`normalizeDesiredConfig` 若发现 mode 已离开 plan、旧权限仍为 plan，就尝试恢复合法的 `permissionModeBeforePlan`，否则回到 bypassPermissions；后续仍需经过 handler。这解释了为什么持久配置与最终结果要分别检查。（`main/tar.js` L22617–22637、L22715–22718、L44546–44550；[S05](https://jiuchenm.github.io/workbuddy-study/#S05)、[S06 定位](https://jiuchenm.github.io/workbuddy-study/#S06)。）
 
 ## collectors 怎样把配置补成可渲染的材料
 
-模板只规定文本结构，还需要具体变量。`PromptRendererImpl` 把这些工作分给收集器（collector）：每个收集器读取自己负责的来源，把结果写入同一份 `vars`。实现采用逐个 `await`，不是把所有收集器并行启动；代码中的数组确定了调用顺序。（`main/tar.js`，`collectSystemPromptVariables` L44451–44459、`getCollectors` L44484–44499；[S04 定位](https://jiuchenm.github.io/workbuddy-study/#S04)。）
+模板是一份带变量位置的文本；只有知道工作目录、语言、身份和记忆等具体值，才能渲染成这次会话的提示词。`PromptRendererImpl` 把取值工作交给收集器（collector）。每个收集器处理一种来源，将结果写入同一份 `vars` 变量表。本例中，EnvCollector 从输入得到 workDir 为 C:/demo/orders、modelId 为 demo-model；其他内容取决于相应来源和开关，不能从这几个输入字段推导出来。
 
-顺序先是 `EnvCollector`，补入目录、平台、模型标识和响应语言等环境信息；接着是 `IdentityCollector` 与 `PersonalizationCollector`，处理身份文件、语气和自定义指令。之后 `MemoryCollector` 提供本地记忆相关变量，`UserMemoryCollector` 处理用户记忆，再由 `CollaborationCollector` 填入工具结果呈现及适用的连接提示。最后依次是 `ExpertPromptSlotCollector`、`ExpertManagementCollector`、`BinaryCollector`，负责专家内容、专家管理开关和随附工具环境。循环结束后才合入 native runtime 可用性变量。
+渲染器按数组顺序逐个 `await` 收集器：EnvCollector 填环境和响应语言；IdentityCollector、PersonalizationCollector 填身份、语气与自定义指令；MemoryCollector、UserMemoryCollector 处理本地和用户记忆；CollaborationCollector 处理工具结果呈现与适用的连接提示；最后是 ExpertPromptSlotCollector、ExpertManagementCollector、BinaryCollector，处理专家内容、管理开关和随附工具环境。循环完成后才合入 native runtime 可用性变量。这个顺序指收集器之间；例如 IdentityCollector 内部仍用 Promise.all 读取它负责的文件。（`main/tar.js` L42950–43001、L43519–43545、L44451–44459、L44484–44499；[S04 定位](https://jiuchenm.github.io/workbuddy-study/#S04)。）
 
-调用某个收集器不代表它必定贡献内容。例如用户记忆在未登录、功能关闭或结果为空时可写入空字符串；专家 Prompt 收集器在没有专家上下文时也返回空内容。`MemoryCollector` 会读取工作目录的记忆，但这不等于完整聊天历史已被装入模板。收集器产生变量，模板还要实际引用变量，文本才会出现在渲染结果中。（`main/tar.js`，各 collector 实现 L42822–43002、L43111–43139、L43515–43549、L43735–43805、L43934–43963、L44168–44205；[S04 定位](https://jiuchenm.github.io/workbuddy-study/#S04)。）
+收集器被调用，并不意味着一定贡献文本。UserMemoryCollector 在未登录、功能关闭或结果为空时可写入空字符串；没有专家上下文时，ExpertPromptSlotCollector 也返回空内容。MemoryCollector 读取工作目录的记忆，不能据此认定完整聊天历史已经装入模板。更后面还有一道条件：模板必须引用某个变量，它才会成为渲染文本的一部分。（`main/tar.js` L43111–43139、L43735–43805、L44168–44205；[S04 定位](https://jiuchenm.github.io/workbuddy-study/#S04)。）
 
-handler 可以先收集一次变量，并以同一个 options 对象为键存进 WeakMap；随后 `renderSystemPrompt` 读取这份结果，避免重复收集。这里的复用范围依赖对象身份，不是给同名会话建立一个永久缓存。渲染器最终用 Nunjucks 把模板和变量合成字符串。这一步产出文本，尚未证明文本已发送给模型。
+handler 先收集变量，再把这份结果按同一个 options 对象的身份存入 WeakMap；随后 `renderSystemPrompt` 可取回它，避免这次装配重复收集。WeakMap 是按对象身份关联值的映射，这里没有建立按 sessionId 永久复用的会话缓存。Nunjucks 模板引擎再把模板与 vars 合成为字符串。此时完成的是提示词文本的生成，是否发送仍由下游决定。（`main/tar.js` L44423–44449；[S04 定位](https://jiuchenm.github.io/workbuddy-study/#S04)。）
 
-顺序执行让变量写入次序明确，但也有代价：后面的收集器要等待前面的异步读取结束。当前代码还保留各自的失败处理，例如二进制工具环境读取失败会记录警告，用户记忆失败会退化为空。由此只能推断它们允许部分材料缺失时继续装配，不能推断所有收集器都不会抛错，更不能给出启动延迟或缓存收益。核验性能需要运行测量，本次静态阅读没有这类结果。
+显式 systemPrompt 也有细节：handler 先收集变量，然后才用空值合并运算选择输入字符串或模板结果。因此提供自定义提示词可以替代模板渲染，但这段代码仍会先尝试收集来源。串行调用让变量写入次序明确，也意味着后一个收集器要等前一个完成；二进制环境读取失败会记录警告，用户记忆失败可退化为空。这些局部处理不证明所有收集器都不会抛错，也没有给出延迟或缓存收益的实测结果。（`main/tar.js` L42822–42849、L44203–44205、L44544–44553、L44592–44601；[S04](https://jiuchenm.github.io/workbuddy-study/#S04)、[S05 定位](https://jiuchenm.github.io/workbuddy-study/#S05)。）
 
-显式 Prompt 也不会自动取消前面的收集动作。handler 先调用 `collectSystemPromptVariables`，然后才用空值合并运算选择输入的 systemPrompt 或模板渲染结果。因此“没有使用模板文本”和“没有读取上下文来源”是两件事。若自定义 Prompt 的行为与预期不同，需要同时查看显式字符串、收集到的变量及后续传递位置，而不只是比较模板文件。（`main/tar.js` L44544–44553、L44592–44601；[S05 定位](https://jiuchenm.github.io/workbuddy-study/#S05)。）
-
-用户上下文（user context）另有 `renderUserContext` 入口。它再次按顺序运行 collectors，按是否存在 expertId 选择 `user-context` 或 `user-context-expert`，再渲染成独立文本。代码注释将其用途说明为首条用户消息的隐含上下文，让身份、语气等与可复用系统模板分开；该函数本身只返回字符串，不能凭它断言每轮消息都重新注入。这里也没有使用前述 WeakMap 复用逻辑，部分 collector 自己的缓存是另一回事。（`main/tar.js`，`PRECOLLECTED_SYSTEM_PROMPT_VARIABLES` L44423–44430、`renderSystemPrompt` L44443–44449、`renderUserContext` L44467–44480；[S04 定位](https://jiuchenm.github.io/workbuddy-study/#S04)。）
+用户上下文（user context）有独立的 `renderUserContext` 入口：它重新顺序调用 collectors，再按 expertId 选择 user-context 或 user-context-expert 模板。注释将其定位为首条用户消息的隐含上下文，用来将身份、语气等与可复用系统模板分开。函数本身只返回字符串，也未用上述 WeakMap；它不能证明每轮都重新注入，collector 自身的缓存另算。（`main/tar.js` L44461–44480；[S04 定位](https://jiuchenm.github.io/workbuddy-study/#S04)。）
 
 ## 模板存在，为什么还不能认定它正在生效
 
-本例没有 expertId，`selectTemplateKind` 会选 normal family，再结合 `welcomeMode: "code"` 得到 normal-code。`TEMPLATE_NAMES` 将它映射到 `workbuddy-craft-code-prompt.tpl`。loader 先搜索该文件；找不到变体时，才按 `FALLBACK_KIND` 回到 normal，对应 `workbuddy-prompt.tpl`。基础模板也不存在时会抛错，不是自动得到一段空 Prompt。（`main/tar.js`，`selectTemplateKind` L44415–44421、`TEMPLATE_NAMES` L44672–44687、`createTemplateLoader` L44714–44726；[S07 定位](https://jiuchenm.github.io/workbuddy-study/#S07)。）
+回到没有 expertId 的订单例子，`selectTemplateKind` 选择 normal family，与 welcomeMode code 合成 normal-code。`TEMPLATE_NAMES` 将它映射到 workbuddy-craft-code-prompt.tpl。加载器（loader）先找这个文件，缺少变体时才回退到 normal 对应的 workbuddy-prompt.tpl；基础文件也不存在会抛错。因而“选择了 normal-code”和“读到了代码专用模板”仍有区别。（`main/tar.js` L44415–44421、L44672–44726；[S07 定位](https://jiuchenm.github.io/workbuddy-study/#S07)。）
 
-文件搜索首先考虑宿主提供的 runtime 模板目录，随后还有基于进程 cwd 的开发、测试候选路径。另一方面，安装包确实含有 `resources/plugins/workbuddy-builtin/welcomemode/work/prompt.tpl`，其中 L5–L8 根据 `workMode` include 各种 interactionmode 片段。但找到这份材料，不能证明它就是上面 normal-code 的加载结果；要把两者连起来，还需确认本次配置、实际路径与调用分支。（`main/tar.js`，`listWorkbuddyPromptTemplateDirCandidates` L43873–43894；[S07](https://jiuchenm.github.io/workbuddy-study/#S07)、[S08 定位](https://jiuchenm.github.io/workbuddy-study/#S08)。）
+搜索先考虑宿主提供的 runtime 模板目录，再考虑基于进程 cwd 的开发、测试路径。安装包中另有 resources/plugins/workbuddy-builtin/welcomemode/work/prompt.tpl，它按 workMode include 不同 interactionmode 片段。但文件在磁盘上，并不能证明它就是本例加载到的模板；需要实际路径和调用分支才能将两者对应起来。（`main/tar.js` L43873–43894；该 prompt.tpl L5–L8；[S07](https://jiuchenm.github.io/workbuddy-study/#S07)、[S08 定位](https://jiuchenm.github.io/workbuddy-study/#S08)。）
 
-更下游还有一个会改变结论的分支：`buildAgentCliRuntimeArgs` 检查 addon manifest。若 `expanded.compose.cliComposeEnabled` 为 true，且 systemPrompts 中有 `source: "work_mode"`，就不传 legacy system prompt 参数；tools 中出现同类来源时，则单独抑制 legacy `--tools`。两项判断彼此独立，`--permission-mode` 仍会组装。于是“handler 生成了配置”和“CLI 采用了该配置文本”之间，还隔着一次选择。本例排除了这个分支；真实排查必须看具体 manifest。本次只读核验补充定位为 `main/server.js`，`shouldSuppressLegacySystemPrompt`、`shouldSuppressLegacyTools`、`buildAgentCliRuntimeArgs` L174227–174254；该片段未收录在上述公开 S04–S08 目录中。
+下游的 `buildAgentCliRuntimeArgs` 还会检查 addon manifest，即描述附加内容及组合方式的清单。若 `expanded.compose.cliComposeEnabled` 为 true，且 systemPrompts 列表有 `source: "work_mode"`，就抑制 legacy system prompt 参数；tools 列表出现同类来源时，才单独抑制 legacy `--tools`。这两项独立判断，`--permission-mode` 仍会组装。补充证据是 `main/server.js` L174227–174254，未收录在上述公开 S04–S08 定位目录中。
 
-这也是为什么不能把安装包中的文件数量解释成上下文容量。一个文件可能只是候选材料，只有满足选择条件、完成加载并进入发送路径，才成为这次请求的一部分。顺着文件目录阅读，可以理解产品提供了哪些内容；顺着调用链阅读，才能知道程序可能怎样使用这些内容；要回答“我刚才那次用了哪份”，仍然需要对应会话的运行证据。三种问题需要的证据不同，前一种阅读再完整，也补不上最后一步。
+本例排除了 addon composition，所以可继续推导：若生成的系统提示词文本或文件路径已传给该函数，它会加入相应的 legacy 参数；工具字符串会加入 `--tools`，权限会加入 `--permission-mode plan`。但 CLI 接收参数之后怎样组成请求、模型最终收到什么，仍需继续取证。**handler 输出、CLI 参数、真实模型 payload 是三个观察位置。** 仅统计安装包文件数量，也不能得出上下文容量；文件需经过选择、加载和实际发送，才会成为某次请求的材料。
 
 ## 残留 expertId 怎样改变同一次选择
 
-把本例稍改一下：用户切到 Plan，但输入还残留 `expertId: "demo-expert"`。`DefaultModeHandler` 会把 promptMode 改成 craft，却照样向 renderer 传递 expertId。`renderSystemPrompt` 据此计算 `isExpert=true`；`selectTemplateKind` 先判断 quick、expert、ask，其他情况再看 isExpert。因此这次会选 expert-code，而非 normal-code。权限仍为 plan。
+只改一个条件：切到 Plan 时，输入仍带 `expertId: "demo-expert"`。DefaultModeHandler 虽将 promptMode 改为 craft，却照样传入 expertId。renderer 以它计算 isExpert 为真；选择函数先判断 quick、expert、ask，其他情况才看 isExpert，所以这次选 expert-code，权限仍为 plan。（`main/tar.js` L44415–44421、L44444–44454、L44528–44543；[S04](https://jiuchenm.github.io/workbuddy-study/#S04)、[S05 定位](https://jiuchenm.github.io/workbuddy-study/#S05)。）
 
-这里必须核对代码而非只信注释。附近注释概括为“scene mode 优先于 expertId”，实际分支仅对 quick、expert、ask 作明确优先判断，craft 和 plan 仍可落入 isExpert 分支。`renderUserContext` 更是直接按 expertId 选专家模板；collector 的专家判断也依赖这个字段。残留值因此可能同时影响模板和变量，单改页面上的模式名称未必足够。（`main/tar.js` L44388–44421、L44444–44454、L44467–44477、L44528–44543；[S04](https://jiuchenm.github.io/workbuddy-study/#S04)、[S05 定位](https://jiuchenm.github.io/workbuddy-study/#S05)。）
+附近注释概括“scene mode 优先于 expertId”，实际分支只对 quick、expert、ask 明确优先，craft 和 plan 仍可选专家模板。renderUserContext 也直接按 expertId 选择模板，collector 的专家判断同样依赖它。因此残留字段可能同时影响模板和变量。这个条件路径已在代码中核对，但尚未验证上游切换是否真的留下 expertId；上游也可能清理字段，显式 systemPrompt 或 CLI composition 还可能替代这份渲染结果。
 
-这证明一个有条件的静态路径，不证明当前应用切换时一定留下 expertId；上游可能已经清理它，显式 systemPrompt 或 CLI composition 也可能绕过相关渲染结果。若要复现，就应记录切换前后传入的字段、选中的 handler、template kind、解析到的文件与下游 CLI 参数。只有这些对应起来，才能判断是输入状态残留、模板回退，还是下游采用了另一套组合方式。
+如果排查真实切换，应先对应切换前后输入、选中的 handler、template kind、解析到的文件、合并配置与下游 CLI 参数，再看请求 payload。这样才能判断是哪一步沿用了旧状态。读到选择函数只能证明条件满足时会走哪个分支，不能证明当前用户已经遇到这个缺陷。
 
 <details>
 <summary>面试怎么回答</summary>
 
-**一分钟回答：** WorkBuddy 的模式装配把行为提示、工具集合和权限分开处理。在核验的 legacy 路径中，ModeService 选 handler，handler 生成默认配置，再按字段规则合并输入。Plan 的 promptMode 映射为 Craft，但保留 Plan 工具模式并强制 plan 权限。renderer 选择模板，顺序调用 collectors，填入环境、身份、记忆等变量；user context 另行渲染。最终是否传给 CLI，还受 addon composition 分支影响。因此默认表、模板文件存在和当前模型真实输入，需要分别取证。
+一分钟回答：WorkBuddy 将界面模式转换成提示词、工具和权限配置。在已核验的 legacy 路径中，ModeService 选 handler；handler 把 Plan 的 promptMode 映射为 Craft，同时保留 Plan 工具模式并强制 plan 权限。renderer 用 collectors 收集环境、身份、记忆等变量，选择并加载模板，再渲染为文本。ModeService 随后覆盖显式字段，并重新保留处理器指定的权限等字段。最后还要检查 CLI addon composition 是否抑制 legacy 参数。要知道模型实际收到了什么，必须取得对应请求，不能凭模板文件存在来判断。
 
-**追问一：Plan 中出现 Write，是否说明权限控制失效？** 不能这样判断。配置工具名称和执行时允许动作是两个环节，应继续核对 permissionMode 及具体执行结果。仅凭工具列表或 Prompt 文案，都无法证明一次写操作获准。
+追问一：Plan 中出现 Write，是否说明权限失效？工具候选和执行权限是不同环节；这版 Plan 默认继承 Craft 工具。应继续核对 permissionMode 与实际执行结果，不能用名称列表代替一次写操作获准的证据。
 
-**追问二：为什么切回 Craft 仍可能选专家模板？** 如果 expertId 残留，实际选择函数在 craft 分支仍会检查 isExpert，可能选 expert family。要确认故障，必须验证输入确实残留，且该渲染结果没有被显式 Prompt 或下游组合分支替代。
+追问二：为什么切回 Craft 仍可能选专家模板？在 expertId 残留的条件下，craft 分支仍会检查 isExpert。要确认当前故障，还需证明输入确实残留，且模板结果没有被显式 Prompt 或下游组合分支替代。
+
+追问三：自定义 systemPrompt 是否意味着完全不读记忆？这段 handler 先收集变量，才选择显式字符串或模板渲染结果，所以不能这样断言。具体读取是否成功、最终文本包含什么仍是不同证据。
 
 </details>
 
-练习：沿用本例，但切到 Plan 时保留 `expertId: "demo-expert"`，并显式传入 `tools: "Read,Grep"` 与 `permissionMode: "bypassPermissions"`。未提供 systemPrompt，未启用 CLI composition，所需模板存在。请推导 handler 渲染的 template kind、ModeService 合并后的 tools 和 permissionMode。若之后只启用 work_mode 的 systemPrompts addon，能否继续断言该模板就是实际系统提示词？
+练习：沿用订单例子，切到 Plan 时保留 `expertId: "demo-expert"`，显式传入 `tools: "Read,Grep"` 与 `permissionMode: "bypassPermissions"`。未提供 systemPrompt，所需模板存在，未启用 CLI composition。推导 template kind、合并后的 tools 和 permissionMode。随后开启 CLI composition，且仅 systemPrompts 有 work_mode 来源，还能断言该模板就是实际系统提示词吗？
 
 <details>
 <summary>练习参考思路</summary>
 
-template kind 为 expert-code：Plan 被映射到 craft，但 expertId 仍为真。合并后的 tools 为 Read,Grep，因为非 undefined 的显式工具覆盖默认集合；permissionMode 为 plan，因为 handler 的强制结果在合并末尾重新覆盖输入。若启用 CLI composition 且 systemPrompts 中有 work_mode 来源，legacy system prompt 参数会被抑制，不能继续认定该模板进入模型请求。仅此条件并未抑制 legacy tools，还需分别检查 tools addon。以上是按已读代码手动推导，未运行 WorkBuddy 会话。
+按代码手动推导，template kind 为 expert-code：Plan 映射到 craft，但 expertId 仍为真。tools 为 Read,Grep，因为显式字段覆盖默认集合；permissionMode 为 plan，因为处理器强制的值在合并末尾再次覆盖输入。开启组合且 systemPrompts 有 work_mode 后，legacy system prompt 参数被抑制，不能认定该模板进入实际请求。legacy tools 是否被抑制仍需单独检查 tools 列表；题设的 systemPrompts 条件本身不足以抑制它。这些结果没有通过运行 WorkBuddy 会话验证。
 
 </details>

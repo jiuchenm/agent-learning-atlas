@@ -76,3 +76,18 @@ main{max-width:1320px}
 
 /* Keep every course group reachable as the catalog grows. */
 .sidebar{overflow-y:auto}.sidebar>nav,.sidebar>.track-link{flex-shrink:0}.workbuddy-entry p{max-width:850px;line-height:1.85}
+
+/* Markdown structure should make the argument scannable in either theme. */
+.lesson-kind{font-style:normal;font-weight:650;color:var(--ink);border:1px solid var(--line);padding:2px 5px;border-radius:3px}
+.prose blockquote{margin:25px 0;padding:2px 20px;border-left:3px solid var(--ink);background:var(--surface-soft);color:var(--ink)}
+.prose blockquote p{margin:13px 0}
+.prose hr{border:0;border-top:1px solid var(--line);margin:34px 0}
+.prose ul,.prose ol{padding-left:1.5em;margin:17px 0 23px}
+.prose li{padding-left:.3em;margin:11px 0;line-height:1.78}
+.prose li::marker{color:var(--muted)}
+.prose li strong{font-weight:700}
+.prose h3{font-size:19px;margin:30px 0 13px}
+.prose table{font-size:14px;line-height:1.65}
+.prose td,.prose th{padding:11px 13px}
+.prose .table-scroll{margin:25px 0}
+@media(max-width:640px){.prose blockquote{margin:22px 0;padding:1px 14px}.prose table{font-size:12px}.prose td,.prose th{padding:9px 10px}}

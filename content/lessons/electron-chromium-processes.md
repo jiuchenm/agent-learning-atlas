@@ -1,16 +1,18 @@
 # Electron 与 Edge/Chromium：进程怎样创建、通信和退出
 
-只打开两个 Edge 标签页，Windows 任务管理器却列出十几个 msedge.exe；一个 Electron 应用只有一扇窗口，也带着好几个同名进程。关掉窗口后，其中一些还在。要判断这是正常分工还是资源泄漏，先要回答三个问题：窗口里的内容由谁运行，谁负责管理这些执行者，以及用户的“关闭”到底关闭了哪一层。
+**Electron 是用 JavaScript、HTML 和 CSS 构建桌面应用的框架**，它把 Chromium 和 Node.js 嵌入应用。Chromium 是开源浏览器项目，提供网页运行、渲染和多进程架构；Edge 是采用 Chromium 的浏览器产品。Electron 让开发者用网页技术做桌面界面，并通过应用代码安排本机能力；Edge 的标签页与后台行为则由浏览器产品管理。[Electron 简介](https://www.electronjs.org/docs/latest/)、[Edge 的 Chromium 架构](https://learn.microsoft.com/en-us/troubleshoot/microsoft-edge/performance/edge-high-cpu-memory)
 
-一个操作系统进程（process）有自己的执行环境和地址空间；线程（thread）是进程内的执行单元。网页、标签页和窗口则是应用管理的对象，并非操作系统进程的别名。Chromium 会根据内容之间的关系、安全要求和资源条件分配进程，所以可见页面数量不能直接换算成进程数量。[Chromium 进程模型](https://chromium.googlesource.com/chromium/src/+/main/docs/process_model_and_site_isolation.md)
+这解释了一个常见困惑：假设只打开两个 Edge 标签页，Windows 任务管理器却列出十几个 msedge.exe；一个 Electron 应用只有一扇窗口，也带着好几个同名进程。关掉窗口后，其中一些还在。**进程**（process）是操作系统管理的执行环境，有自己的地址空间；**线程**（thread）是进程内的执行单元。页面是加载的文档及其运行状态，标签页和窗口是承载内容的应用对象。它们属于不同层次，所以窗口数、页面数、线程数与进程数不能相互直接换算。要判断后台进程是否正常，得知道谁执行页面、谁管理它，以及“关闭”结束了哪一层。[Chromium 进程模型](https://chromium.googlesource.com/chromium/src/+/main/docs/process_model_and_site_isolation.md)
 
-本文只需基本编程知识，依据官网解释通用机制；后续 WorkBuddy 篇另以 5.6.2 安装代码分析产品实例。官方文档核验于 2026-09-29，不代表当前电脑的 Edge 版本或 WorkBuddy 实际配置。贯穿示例是假设文档站 `https://docs.test/editor`，里面嵌有跨站 iframe `https://charts.test/view`，另一个标签页打开 `https://docs.test/help`。所有 PID、导航和故障均为教学假设，没有枚举用户标签页、终止进程或实际抓包。
+本文只需基本编程知识，是 WorkBuddy 桌面路径的基础选读。后续篇另以 5.6.2 安装代码分析产品实例；这里依据官方文档解释通用机制。原资料核验于 2026-09-29，Electron 定义、进程分工、退出事件与 Chromium 进程模型的官方片段补充核验于 2026-10-01；这些资料不代表当前电脑的版本或配置。
+
+贯穿例子是一个**教学假设**：文档站 `https://docs.test/editor` 嵌有跨站 iframe `https://charts.test/view`，另一个标签页打开 `https://docs.test/help`。iframe 是页面中嵌入的子页面框架。随后把编辑页装进 Electron 文档客户端：用户点击按钮查询已启动的导出任务，界面显示任务状态，再观察导航、崩溃和关窗后的变化。所有 PID、消息返回值和故障均为假设，没有枚举用户标签页、运行示例、终止进程或实际抓包。
 
 ## 谁管理窗口，谁运行网页
 
-在 Chromium 的结构里，browser process 管理浏览器及页面之间的协调，renderer process 负责网页内容的执行与渲染。GPU、网络等工作还可能交给相应服务进程。扩展、子框架及其他功能也会增加任务管理器里的条目。这样拆分，可以让某个 renderer 出问题时，其他进程还有机会继续工作；代价是多份运行环境、跨进程通信和管理成本，不能只用进程数评价内存效率。[Site Isolation 设计](https://www.chromium.org/developers/design-documents/site-isolation/)、[Edge 任务管理器说明](https://www.microsoft.com/en-us/edge/learning-center/how-to-use-edge-task-manager)
+在 Chromium 的结构里，**浏览器进程**（browser process）管理浏览器并协调页面，**渲染进程**（renderer process）执行网页代码并参与渲染。GPU、网络等工作还可能交给相应服务进程。扩展、子框架及其他功能也会增加任务管理器里的条目。这样拆分，某个 renderer 出问题时，其他进程还有机会继续工作；代价是多份运行环境、跨进程通信和管理成本，不能只用进程数评价内存效率。[Site Isolation 设计](https://www.chromium.org/developers/design-documents/site-isolation/)、[Edge 任务管理器说明](https://www.microsoft.com/en-us/edge/learning-center/how-to-use-edge-task-manager)
 
-Electron 继承 Chromium 的多进程架构，但把应用开发接口交给了你。一个应用实例的入口是主进程（main process），它运行在 Node.js 环境中，可以使用 Node API，并通过 BrowserWindow 创建和管理原生窗口。窗口中的 HTML、CSS、页面 JavaScript 由 renderer 执行。操作系统启动应用后，Electron/Chromium 根据窗口和服务需求安排子进程；不是网页中的每段 JavaScript 都自行启动一个进程。具体系统上可能还有进程启动辅助机制，所以逻辑管理关系也不应硬画成所有子进程都由同一个 PID 直接创建。[Electron Process Model](https://www.electronjs.org/docs/latest/tutorial/process-model)
+Electron 继承 Chromium 的多进程架构，并把应用开发接口交给开发者。一个应用实例的入口是**主进程**（main process），它运行在 Node.js 环境中，可以使用 Node API，并通过 BrowserWindow 创建和管理原生窗口。本例中的 main 创建文档客户端窗口，窗口内的 HTML、CSS、页面 JavaScript 交给 renderer。操作系统启动应用后，Electron/Chromium 根据窗口和服务需求安排子进程；页面中的一段 JavaScript 不会仅因开始执行就得到一个新进程。具体系统上可能还有进程启动辅助机制，所以逻辑管理关系也不应硬画成所有子进程都由同一个 PID 直接创建。[Electron Process Model](https://www.electronjs.org/docs/latest/tutorial/process-model)
 
 Edge 的 browser process 与 Electron main 在职责上相似，但不能互换概念。Edge 是现成浏览器，产品代码决定标签页、扩展和后台运行策略；网站作者不能借此获得 Electron 主进程那样的 Node 接口。Electron 是构建应用的框架，开发者决定创建什么窗口、允许导航到哪里、是否留在托盘，以及向页面开放哪些本机能力。共享 Chromium 不意味着两个产品拥有相同窗口策略或权限配置。
 
@@ -28,7 +30,7 @@ Edge 的 browser process 与 Electron main 在职责上相似，但不能互换�
 
 ## 两个标签页，为什么不止两个 renderer
 
-假设文档编辑页主 frame 此刻由 PID 4101 运行，跨站图表 iframe 由 PID 4102 运行。用户仍只看见一个标签页，但它已经横跨两个进程。进程外 iframe，英文为 Out-of-Process iframe，简称 OOPIF，正是允许子框架与父框架由不同进程渲染的机制。browser process 跟踪完整框架树，协调导航、输入和画面组合；不要求页面作者把两块画面拼成两个浏览器窗口。[Chromium OOPIF](https://www.chromium.org/developers/design-documents/oop-iframes/)
+假设文档编辑页的顶层框架（main frame）此刻由 PID 4101 运行，跨站图表 iframe 由 PID 4102 运行。PID 是操作系统给进程分配的编号。用户仍只看见一个标签页，但页面内容已经横跨两个进程。**进程外 iframe**（Out-of-Process iframe，OOPIF）允许子框架与父框架由不同进程渲染。browser process 跟踪完整框架树，协调导航、输入和画面组合；不要求页面作者把两块画面拼成两个浏览器窗口。[Chromium OOPIF](https://www.chromium.org/developers/design-documents/oop-iframes/)
 
 下面只画这个假设页面的逻辑分工。箭头表示协调关系，不是固定的操作系统父子进程树，也没有列出全部进程。
 
@@ -49,7 +51,7 @@ flowchart TD
 
 ## preload、context isolation 和 sandbox 隔离的是不同东西
 
-假设我们用 Electron 做一个文档客户端。页面负责显示按钮，主进程负责接触本机资源。preload 在网页脚本之前运行，但它仍是 renderer 里的脚本，并没有因为名字叫“预加载”就变成独立后台进程。沙箱开启时，preload 可使用受限的 Electron/Node 补充接口，不能笼统称它拥有完整 Node 环境。[Electron 沙箱行为](https://www.electronjs.org/docs/latest/tutorial/sandbox)
+现在把编辑页放进 Electron 文档客户端。页面负责显示导出状态按钮，主进程负责接触本机资源，中间需要一层明确的接口。**预加载脚本**（preload）在网页脚本之前运行，仍是 renderer 里的脚本，不是独立后台进程。它可以向页面提供经应用选择的能力。沙箱开启时，preload 可使用受限的 Electron/Node 补充接口，不能笼统称它拥有完整 Node 环境。[Electron 沙箱行为](https://www.electronjs.org/docs/latest/tutorial/sandbox)
 
 上下文隔离（context isolation）把 preload 与网页代码放在不同的 JavaScript context 中。例如两边看到的 window 对象不同，网页不能靠修改自己的全局对象直接改掉 preload 的全部内部状态。这是同一 renderer 内的 JavaScript 环境边界，不是另起一个操作系统进程。需要有意开放能力时，用 contextBridge 定义桥接接口。[Context Isolation](https://www.electronjs.org/docs/latest/tutorial/context-isolation)
 
@@ -61,7 +63,14 @@ flowchart TD
 
 进程间通信称为 IPC，Inter-Process Communication。Electron 的 ipcRenderer 与 ipcMain 使用应用定义的 channel 传消息；网页先通过 preload 暴露的窄接口请求动作，主进程检查后返回结果。`invoke` 配合 `handle` 适合这种请求—响应：renderer 得到 Promise，返回值经消息机制传回，并非两个进程共用一个普通 JavaScript 对象。[Electron 双向 IPC](https://www.electronjs.org/docs/latest/tutorial/ipc#pattern-2-renderer-to-main-two-way)
 
-下面是原创、简化的 JavaScript 示意。假设 docs.test/editor 是此测试应用允许的受控顶层页面，主进程已经创建 win，并保存当前窗口的导出状态；辅助函数由应用实现。代码省略初始化、导航策略和错误呈现，不是完整安全实现。
+本例输入是用户在编辑页点击“查看导出状态”，输出是假设返回值 `{ state: 'running' }` 所对应的“导出中”。请求经过以下步骤：
+
+1. 页面调用 preload 暴露的 `getExportStatus()`，不选择任意系统操作。
+2. preload 固定向 `export:status` channel 发出请求，renderer 等待 Promise。
+3. main 校验发送窗口、顶层 frame 和页面 URL，读取已启动任务的状态。
+4. 状态作为普通数据返回，页面用 `status.state` 更新显示。
+
+下面是原创、简化的 JavaScript 示意，与上述假设对应。假设 docs.test/editor 是此测试应用允许的受控顶层页面，主进程已经创建 win，并保存当前窗口的导出状态；辅助函数由应用实现。代码省略初始化、导航策略和错误呈现，不是完整安全实现。
 
 ```javascript
 // main.js：主进程。假设 win 是该受控窗口。
@@ -87,19 +96,19 @@ const status = await window.desktop.getExportStatus();
 showExportState(status.state);
 ```
 
-调用过程是按钮触发 getExportStatus，preload 固定选择 export:status，主进程验证发送窗口、顶层 frame 和预期页面，再返回状态。本例没有让页面提供任意路径、命令或 channel，也没有把原始 ipcRenderer 暴露出去。来源检查同样不能证明这个站点的内容永远可信，因此真实应用还须控制导航、内容来源及能力范围；有参数的接口也要在主进程校验。官方特别指出，直接转交整个 send/invoke 接口会允许页面发送任意 IPC。[桥接的安全边界](https://www.electronjs.org/docs/latest/tutorial/context-isolation#security-considerations)
+这里的接口只查询状态，没有让页面提供任意路径、命令或 channel，也没有把原始 ipcRenderer 暴露出去。来源检查同样不能证明这个站点的内容永远可信，因此真实应用还须控制导航、内容来源及能力范围；有参数的接口也要在主进程校验。**隔离提供边界，授权决定什么能通过边界。** 官方特别指出，直接转交整个 send/invoke 接口会允许页面发送任意 IPC。[桥接的安全边界](https://www.electronjs.org/docs/latest/tutorial/context-isolation#security-considerations)
 
 跨站 iframe 的网页通信则属于另一层。Chromium 可以通过 frame 的代理和 browser process 路由 postMessage，而不是把 Electron 的任意 ipcMain channel 交给所有网页。把两者都叫“发消息”没有错，但消息接收者、权限和生命周期不同。[OOPIF 跨进程交互](https://www.chromium.org/developers/design-documents/oop-iframes/)
 
 ## 卡住、崩溃与退出，影响范围怎样判断
 
-如果导出计算很重，把它写成主进程中的长时间同步循环，会妨碍主进程处理窗口和 IPC。把代码放进 async 函数不会自动产生新线程；计算仍可能堵住同一事件循环。Electron 的 utilityProcess.fork 可以启动带 Node.js 和消息端口的独立子进程，适合需要独立生命周期的工作。它有自己的 PID、spawn/exit 事件及终止接口；“utility”这个名称不意味着自动获得低权限沙箱。Node 的 worker_threads 则在同一进程中增加线程，可通过受控共享内存通信，并不增加同等的操作系统进程隔离。[utilityProcess](https://www.electronjs.org/docs/latest/api/utility-process)、[Node 并发模型](https://nodejs.org/learn/concurrency/comparing-nodejs-concurrency-models)
+查状态很轻，但被查询的导出任务可能计算很重。如果把它写成 main 中的长时间同步循环，主进程就难以及时处理窗口和 IPC。**async 不会自动产生新线程**；计算仍可能堵住同一事件循环，也就是处理回调与事件的运行机制。Electron 的 utilityProcess.fork 可以启动带 Node.js 和消息端口的独立子进程，适合需要独立生命周期的工作。本例可由 main 管理这样的导出进程，renderer 只负责查询和显示结果。utility process 有自己的 PID、spawn/exit 事件及终止接口；“utility”这个名称不意味着自动获得低权限沙箱。Node 的 worker_threads 则在同一进程中增加线程，可通过受控共享内存通信，并不增加同等的操作系统进程隔离。[utilityProcess](https://www.electronjs.org/docs/latest/api/utility-process)、[Node 并发模型](https://nodejs.org/learn/concurrency/comparing-nodejs-concurrency-models)
 
 回到 PID 4101/4102 的例子。如果只有图表 renderer 4102 崩溃，损坏范围通常局限于它承载的内容；主页面所在进程可以仍然运行。如果几个 frame 或页面共享 4102，它们也可能一起受影响。renderer 不响应与进程已消失也不同：前者可能仍活着，只是没有及时处理事件；后者意味着原执行环境已经结束。共享的 browser/main 或 GPU 等服务出问题，影响又可能跨越多个页面，不能用“一个标签页报错”反推出唯一故障位置。
 
 Electron 为 webContents 提供 unresponsive、responsive 和 render-process-gone 等不同事件。最后一个事件报告 renderer 意外消失，details 给出原因等信息；它不是页面加载失败事件，也不保证业务请求可重放。应用可以在用户确认和状态核对后重新加载，但新 renderer 不会自动恢复旧 JavaScript 堆中的草稿或未回传结果。本例若导出已写入文件、界面随即崩溃，重载页面后应该先查导出状态，不能因为 Promise 没返回就再创建一次任务。[webContents 事件](https://www.electronjs.org/docs/latest/api/web-contents#event-render-process-gone)
 
-关窗也有多个含义。隐藏窗口、关闭窗口、退出应用是不同操作。Electron 的 win.close 会尝试关窗，页面可能阻止关闭；应用可以订阅 window-all-closed，自行决定是否退出，例如保留托盘。正常 app.quit 路径会触发 before-quit，但处理器可以阻止退出，而且 Windows 关机、重启或注销时未必触发该事件。因而任务数据需要及时持久化，不能只等最后一刻保存；开发者还须为自己创建的辅助进程安排关闭策略。[BrowserWindow.close](https://www.electronjs.org/docs/latest/api/browser-window#winclose)、[app 生命周期](https://www.electronjs.org/docs/latest/api/app#event-before-quit)
+用户接着点击窗口的关闭按钮，仍不能据此判断导出是否结束。隐藏窗口、关闭窗口、退出应用是不同操作。Electron 的 win.close 会尝试关窗，页面可能阻止关闭；应用可以订阅 window-all-closed，自行决定是否退出，例如保留托盘。正常 app.quit 路径会触发 before-quit，但处理器可以阻止退出，官方说明 Windows 因系统关机、重启或用户注销关闭应用时不发出该事件。因而任务数据需要及时持久化，不能只等最后一刻保存；开发者还须为自己创建的辅助进程安排关闭策略。判断关闭失败时，要确认窗口是否真的关闭、应用是否请求退出、是否有处理器阻止，以及辅助任务是否按既定策略收尾。[BrowserWindow.close](https://www.electronjs.org/docs/latest/api/browser-window#winclose)、[app 生命周期](https://www.electronjs.org/docs/latest/api/app#event-before-quit)
 
 Edge 关闭全部窗口后仍有进程，需要分开看两种策略。StartupBoostEnabled 允许在系统登录时启动进程，并在最后窗口关闭后后台重启，以准备下次启动；BackgroundModeEnabled 则允许继续运行后台应用，保留当前浏览会话及 session cookies。后台模式已经维持运行时，并不需要再靠 startup boost 重启。这些条件不能从“还有 msedge.exe”反推是否开启，更不能直接认定泄漏；持续资源用量与实际策略才是调查依据。[Startup boost 政策](https://learn.microsoft.com/en-us/deployedge/microsoft-edge-browser-policies/startupboostenabled)、[Background mode 政策](https://learn.microsoft.com/en-us/deployedge/microsoft-edge-browser-policies/backgroundmodeenabled)
 

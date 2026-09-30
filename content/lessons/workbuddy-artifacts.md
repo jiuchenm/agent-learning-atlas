@@ -1,30 +1,43 @@
 # WorkBuddy：文档与表格任务怎样交接和验收
 
-假设用户给出一份销售工作簿，说“按地区汇总”。助手算出了正确总额，却把结果另存成新文件，而用户期待在原文件增加一个 sheet；另一位助手生成了 DOCX，回复“已完成”，用户打开才发现它仍是修正前的版本。这些错误不一定发生在模型计算或写作时，也可能发生在交接对象、目标路径或完成判据上。
+假设用户给出一份销售工作簿，说“在这份文件里按地区汇总”。助手算出的地区销售和总额都对，却另存了一份新表，原工作簿没有变化。再假设助手用这些数字写了 DOCX：内容稿已经修改，转换步骤却读了旧 HTML，最终文件仍是旧版。两个任务都做出过正确内容，交到用户手里的对象却不符合要求。
 
-这里的 artifact 指任务实际交付的文件，例如改过的工作簿或新生成的 DOCX。用户要的是哪个文件、保存在什么路径、能否打开并满足要求，都属于验收的一部分。WorkBuddy 的文档流程把这些责任分散在路由 Skill、领域角色、脚本和保存 Hook 中；Skill 是任务说明，Hook 是保存时触发的额外处理。本篇依据 2026-09-28 读取的 WorkBuddy 5.6.2 安装材料，解释它们怎样配合，以及哪些约定没有形成强制保证。可先读 [Skill 从发现到执行](#/lesson/workbuddy-skills)。以下例子均为假设，没有打开业务文件或运行供应商程序；来源链接是[安装材料定位索引](https://jiuchenm.github.io/workbuddy-study/#S12)，不是公开源码。下文 entry 省略共同前缀 `resources/plugins/workbuddy-builtin/`。
+**产物（artifact）是任务实际交付的文件。** 文档与表格任务需要把交付对象、内容版本和完成证据一起传到最后一步，因为写作、排版、转换、重算和保存可能由不同角色或工具完成。WorkBuddy 是桌面 Agent 应用；这里用它的安装实现说明，路由 Skill 怎样选择处理路线，领域角色怎样接收文件，脚本怎样检查结果，保存 Hook 怎样在指定事件发生后补做保存。Skill 是供 Agent 遵循的任务说明；脚本则有可检查的返回分支，两类材料能证明的事情不同。先修可见[工具层的身份与执行](#/lesson/workbuddy-tools)，Skill 的加载另见 [Skill 从发现到执行](#/lesson/workbuddy-skills)。
+
+本文限定于 WorkBuddy **5.6.2 的固定安装包静态材料**：原阅读日期为 2026-09-28，2026-10-01 重读关键片段并核对 hash。整包 SHA256 为 `c4304eec1f8849ea16b9492f02dcc5d1e93be4a7aed184b7effaabd2f06c9d22`；各 entry 的 hash 保留在阅读记录中。这些证据解释随包流程约定与代码分支，不能证明真实任务每次遵循流程。以下销售数字、文件路径、评分和失败现场均为教学假设，未打开业务文件或运行供应商程序。来源链接是[安装材料定位索引](https://jiuchenm.github.io/workbuddy-study/#S12)，未公开对应源码全文；下文 entry 省略共同前缀 `resources/plugins/workbuddy-builtin/`。
 
 ## 先决定交付哪一个文件
 
-“汇总成一张新表”存在两种不同含义：新工作簿是磁盘上的另一个 `.xlsx`，新 sheet 则可能仍在原工作簿里。`skills/tencent-docs-routing/SKILL.md` L45—68 用交付物身份区分它们：只有用户要独立的新文件、原材料只读、最终路径不同于源文件时，才进入 `tencent-docs-sheet-generation`；在原文件添加汇总 sheet 属于原位修改。附件是不是 Excel，并不能单独决定路线。[Office 路由：S12](https://jiuchenm.github.io/workbuddy-study/#S12)
+路由是选择由哪条流程处理请求。“汇总成一张新表”首先有对象歧义：新工作簿是磁盘上的另一个 `.xlsx`；新工作表（sheet）则可能仍在原工作簿里。`skills/tencent-docs-routing/SKILL.md` L45—68 用交付物身份区分它们。生成独立工作簿要同时满足新文件意图、源材料只读、目标路径不同于源路径，才进入 `tencent-docs-sheet-generation`；在原文件添加汇总 sheet 属于原位修改。[Office 路由：S12](https://jiuchenm.github.io/workbuddy-study/#S12)
 
-假设 `C:/Demo/sales.xlsx` 里有三笔销售额：华东 120、华东 80、华南 50。用户说“另做 `C:/Demo/summary.xlsx`”，应保留源文件，生成独立工作簿；用户说“在 sales.xlsx 增加地区汇总 sheet”，最终交付对象仍是 sales.xlsx。两种任务的手算结果相同：华东 200、华南 50、总额 250，但它们允许写入的对象不同。计算正确不能弥补改错文件。
+沿开头的例子，假设 `C:/Demo/sales.xlsx` 有三笔销售：华东 120、华东 80、华南 50。两种请求都要手算得到华东 `120 + 80 = 200`、华南 50、合计 `200 + 50 = 250`，但输入与输出契约不同：
 
-对于原工作簿，该路由还区分确定性小修改和依赖数据理解的任务。把指定单元格改成给定值，可以从请求确定动作；按地区汇总则需要发现表头、识别记录、决定范围，进入 sheet-agent 路线。L116—118 要求原子委派（atomic delegation）：把完整任务一次交出去，主层只能先解析文件身份，不能先读一部分、写一部分，再把余下工作交给领域 Agent。这里的“原子”指任务责任不被拆散，并不表示数据库事务，也没有承诺失败回滚。
+| 用户请求 | 源文件的用途 | 最终应验收的对象 |
+| --- | --- | --- |
+| “另做 C:/Demo/summary.xlsx” | 只读参考 | 独立的 summary.xlsx，原文件未因汇总而修改 |
+| “在 sales.xlsx 增加地区汇总 sheet” | 原位修改 | sales.xlsx 内新增的汇总 sheet |
+
+因此，确认路线时需要看用户要改哪个对象。看到 `.xlsx` 附件只能确定文件类别，不能确定写入目标；算出 250 也不能弥补改错文件。
+
+对于原工作簿，路由还区分确定性小修改和依赖数据理解的任务。把指定单元格改成给定值，可以从请求确定动作；按地区汇总则需要发现表头、识别记录、决定范围，进入 sheet-agent 路线。L116—118 要求原子委派（atomic delegation）：主层先解析文件身份，再把完整任务一次交出去，数据发现由领域 Agent 负责。主层如果先读写一部分再转交，子层收到的就可能是已变化的输入。这里的“原子”描述任务责任没有被拆散，没有承诺数据库事务或失败回滚。
+
+这份 router 明确限定本地 Office/WPS 文件。安装包另有 `builtin-plugins/tencent-docs-plugin/skills/tencent-docs/SKILL.md` 面向 `docs.qq.com` 云文档，`tencent-saas-docs/SKILL.md` 面向 `saas.docs.qq.com` 企业文档；两者的说明列出创建、读取、编辑和文件管理等能力，并把通用管理与 doc、sheet、slide 精细编辑分到不同 MCP endpoint。它们要求先查工具参数定义，鉴权依赖宿主注入票据。这些是云端路线的随包说明，本例的本地路径和编辑器 ID 不能直接作为云文档调用参数。本次只读了能力与调用约定，没有查询云端工具清单、票据或权限，也未验证云端操作成功；腾讯文档名称相近，不足以把本地保存与云端写入当成同一动作。
 
 ## 路径和编辑器身份必须一同交清
 
-路径表示磁盘对象；`file_id` 在路由约定中标识一个已经打开的本地编辑器实例。即使某一实现暂时用绝对路径作 ID，也应消费工具返回的身份，而不是让模型从文件名拼出来。窗口当前显示哪个文件、磁盘上哪个文件待交付、工具操作哪个实例，是需要保持一致的三个问题。[同一 router L140—146：S12](https://jiuchenm.github.io/workbuddy-study/#S12)
+选择原位汇总之后，还需要把 sales.xlsx 交给真正操作它的工具。路径定位磁盘文件；`file_id` 在路由约定中标识已打开的本地编辑器实例；`sheet_id` 标识实例中的工作表。窗口当前显示的对象、工具接收的身份与最终保存路径需要对应。即使某一实现暂时用绝对路径作 ID，也应使用工具返回的值，不能让模型从文件名拼出一个身份。[同一 router L140—146：S12](https://jiuchenm.github.io/workbuddy-study/#S12)
 
-这一段安装材料恰好留下了可检查的交接分歧。上层 router 要求主层先取得 live `file_id`，把 ID、绝对路径和用户原始请求传下去，并禁止子 Agent 自行解析；中间的 `builtin-plugins/sheetagent/skills/excel-handler/SKILL.md` L18—29 却只列路径、原始需求、当前时间、期望返回四项；下层 `agents/sheet-agent.md` L43—79 又允许缺少 ID 时调用 `resolve_local_excel` 解析路径或默认实例。[中间交接：S13](https://jiuchenm.github.io/workbuddy-study/#S13)、[下层解析：S14](https://jiuchenm.github.io/workbuddy-study/#S14)
+这一段安装材料留下了可检查的交接分歧。上层 router 要求主层先取得 live `file_id`，把 ID、绝对路径和用户原始请求传下去，并禁止子 Agent 自行解析；中间的 `builtin-plugins/sheetagent/skills/excel-handler/SKILL.md` L18—29 却只列路径、原始需求、当前时间、期望返回四项；下层 `agents/sheet-agent.md` L43—79 又允许缺少 ID 时调用 `resolve_local_excel` 解析路径或默认实例。[中间交接：S13](https://jiuchenm.github.io/workbuddy-study/#S13)、[下层解析：S14](https://jiuchenm.github.io/workbuddy-study/#S14)
 
-因此，不能把这些文件拼成一份毫无矛盾的运行保证，也不能仅凭静态分歧断言实际任务已经失败。它指出了应观察的断点：ID 在哪一层产生，handler 是否传递，子层是否重复解析，最终保存是否仍指向原对象。对前面的原位汇总假设，可靠的交接应保留工具返回的真实 ID、`C:/Demo/sales.xlsx` 和完整原始请求；这是据分歧提出的工程要求，不是本次执行记录。若缺字段，应修复交接契约，不能把猜出一个看似合理的 ID 当成恢复。
+这些材料暴露了一个交接检查点：上层生成的 ID 是否真的被中间层传下去。它们没有证明真实任务已经因此失败。对原位汇总例子，工程上的检查办法是追踪工具返回的 ID、`C:/Demo/sales.xlsx`、目标 sheet 和原始请求，看下层是否操作同一对象、保存是否仍指向该对象。这是据静态分歧提出的验收要求。缺字段时要修复传递契约；下层解析报错时应保留错误并停止，不能靠猜 ID 宣称恢复。
 
 ## DOCX 用产物类型连接阶段
 
-文档创作的交接还多了一层：上一步产生的东西，下一步是否能消费。`builtin-plugins/tencent-docx/skills/tdoc-orchestrator/SKILL.md` L32—65 定义 S1 从意图生成 Markdown，S2 从内容生成 HTML，S3 把 HTML 转为 DOCX 并触发预览。这里的类型化交接（typed handoff）是明确规定字段和产物格式，不能直接等同于编译器已经实施了类型检查。[DOCX 编排：S16](https://jiuchenm.github.io/workbuddy-study/#S16)
+假设用户另起一轮，直接给出华东 200、华南 50、合计 250，要求从零写一份约 1500 字的经营说明并交付 DOCX，没有附已有文档。此时任务从汇总表换成文档创作，交接还要回答：上一步产出哪种内容，下一步从哪里读取它？
 
-例如，假设用户另起一轮，直接在消息中给出华东 200、华南 50、合计 250，要求从零写一份约 1500 字的经营说明并交付 DOCX，不附已有文档。S1 负责形成内容稿；S2 接收其 `final_draft_path`，而不是重新猜一份文字；S2 返回的 `formatted_output_path` 必须是 HTML，编排层把它映射到 S3 的 `html_output_path`。目标 DOCX 的绝对路径已在 Stage 0 写入 `pipeline-state.yaml`，converter 启动时读取，避免各阶段各自决定保存位置。下面是字段对应的教学示意，并非实际执行输出：
+`builtin-plugins/tencent-docx/skills/tdoc-orchestrator/SKILL.md` L32—65 定义了三阶段：S1 的 `doc-writer` 从意图生成 Markdown；S2 的 `doc-formatter` 把内容稿排成 HTML；S3 的 `doc-converter` 把 HTML 转成 DOCX 并打开预览。编排层（orchestrator）负责组织顺序和传递参数。类型化交接（typed handoff）在这里指明确规定产物格式和字段，不能直接等同于编译器已经实施了类型检查。[DOCX 编排：S16](https://jiuchenm.github.io/workbuddy-study/#S16)
+
+销售数字从用户输入进入 S1 的内容稿；S2 接收稿件的 `final_draft_path`；S2 返回的 `formatted_output_path` 必须指向 HTML，编排层把它映射到 S3 的 `html_output_path`。目标 DOCX 的绝对路径在 Stage 0 写入 `pipeline-state.yaml`，converter 启动时读取。下面只示意字段如何对应，省略业务正文和部分可选字段，不是实际执行输出或可直接调用的 API 请求：
 
 ```yaml
 stage1_result:
@@ -42,46 +55,50 @@ pipeline_state:
   output_docx_path: C:/Demo/sales-report.docx
 ```
 
-示意中的 S1 相对路径以本次请求目录为基准，交给 S2 前展开到明确位置；`intermediate_dir` 由编排层预建。formatter 解释内容和版式，orchestrator 映射跨阶段字段，converter 使用已确定路径转换，并返回转换状态和预览状态。换文件名时，也要把实际路径写回，不能留下一个磁盘上根本没有的占位文件名。[`agents/doc-formatter.md` L30—49：S60](https://jiuchenm.github.io/workbuddy-study/#S60)、[`agents/doc-converter.md` L114—168：S61](https://jiuchenm.github.io/workbuddy-study/#S61)
+S1 的相对路径以本次请求目录为基准，交给 S2 前展开；`intermediate_dir` 由编排层预建。这里每个字段都有消费方，因而可以定位开头的旧版 DOCX 假设：若修正稿已经写入新路径，但 S3 仍读取旧 HTML，错误发生在版本交接。路径字符串存在不代表对应文件已更新；文件改名也必须把实际路径写回。converter 返回转换状态与预览状态，供编排层继续记录。[`agents/doc-formatter.md` L30—49：S60](https://jiuchenm.github.io/workbuddy-study/#S60)、[`agents/doc-converter.md` L114—168：S61](https://jiuchenm.github.io/workbuddy-study/#S61)
 
-这条完整链不是所有 DOCX 请求的固定流程。已有文档的抽象全文美化可以从 S2 开始；指定字体或修改某段内容会回到编辑路线。更早的优先规则是：无已有文档、具有创作意图、目标短于 1000 字时，进入 `brief-compose`，直接撰稿并生成 HTML，再转换和预览，不继续常规角色编排。若只是要求一份约 600 字说明，就不应为了凑齐三阶段而多跑 S1/S2。角色也不等于独立进程：orchestrator L140—158 默认要求同一执行上下文中的角色切换，仅在用户强制要求时采用独立 subagent。[短篇约定 `brief-compose/SKILL.md` L13—39：S17](https://jiuchenm.github.io/workbuddy-study/#S17)
+这条链有入口边界。已有文档的抽象全文美化从 S2 开始；指定字体或修改某段回到编辑路线。无已有文档、有创作意图、目标短于 1000 字时，优先进入 `brief-compose`：直接撰稿并生成 HTML，再转换和预览。若本例只要求约 600 字说明，应走短篇流程。角色也不等于独立进程：orchestrator L140—158 默认在同一执行上下文中切换角色，仅在用户强制要求时使用独立 subagent。它们都属于 Skill 约定，实际走了哪条路线仍需运行记录。[短篇约定 `brief-compose/SKILL.md` L13—39：S17](https://jiuchenm.github.io/workbuddy-study/#S17)
 
 ## 审计记录和质量检查证明不同的事
 
 `pipeline-state.yaml` 记录阶段、实际产物路径、降级原因和预览状态。`tdoc-orchestrator/references/pipeline-state-protocol.md` 明确把它定义为 audit trail，即便于事后追查的审计记录；按约定单写者顺序更新，先写 YAML 再声明完成检查点。它没有借此提供执行锁、原子事务或自动恢复引擎。[协议 L1—108：S43](https://jiuchenm.github.io/workbuddy-study/#S43)
 
-结束时的 `consistency_check` 要实际检查文件存在且非空，并核对链上阶段是否完成。不过 L153—167 同时规定检查失败也不阻塞交付，只记录错误。因此 `current_stage: completed`、文件存在、检查通过，是不同状态。一个非空 DOCX 也可能缺段落；“已调用预览”只说明打开动作发生，不能证明有人检查过版式。状态字段的价值在于保留事实，不能靠把它们统一写成 completed 来补足证据。
+结束时的 `consistency_check` 要实际检查文件存在且非空，并核对链上阶段是否完成。不过 L153—167 同时规定检查失败也不阻塞交付，只记录错误。因此 `current_stage: completed` 描述阶段推进，文件存在检查描述磁盘状态，质量检查描述指定版本满足了哪些规则。非空 DOCX 仍可能缺段落；“已打开预览”也没有提供版式复核结果。
 
-HTML 质量检查则有实际脚本判据。`skills/html-review/scripts/review_html.py` L763—838 的 `review` 汇总五项得分：设计 token 合规、结构、排版、文体、装饰，权重依次为 25%、25%、20%、20%、10%；安全检查是第六项，不参与平均，而是独立通过条件。总分四舍五入后至少 80，前五维各自通过且安全项通过，整体 `passed` 才为真。[实际评分与退出语义：S25](https://jiuchenm.github.io/workbuddy-study/#S25)
+HTML 质量检查有实际脚本判据。`skills/html-review/scripts/review_html.py` L763—838 的 `review` 汇总五项得分：设计 token 合规、结构、排版、文体、装饰，权重依次为 25%、25%、20%、20%、10%；安全检查是第六项，不参与平均，而是独立通过条件。总分四舍五入后至少 80，前五维各自通过且安全项通过，整体 `passed` 才为真。[实际评分与退出语义：S25](https://jiuchenm.github.io/workbuddy-study/#S25)
 
-手算一个假设反例：前五项分别为 100、100、100、70、100，加权总分是 94。但代码中文体检查可能因缺少必要元素返回 `score: 70, passed: false`，于是总分再高也不能通过。这能防止平均分掩盖某项失败，却不证明文档事实正确；脚本能检查结构规则，不能独立核实经营解释是否有数据支持。运行入口对通过返回 0、不通过返回 1，读不到文件或空输入返回 2，调用方应保留这些区别。
+手算一个假设反例：前五项为 100、100、100、70、100，加权总分为 `100×0.25 + 100×0.25 + 100×0.20 + 70×0.20 + 100×0.10 = 94`。但文体检查可因缺少一个必要元素返回 `score: 70, passed: false`，整体仍失败。平均分没有覆盖独立门槛；这些规则也无法独立核实经营解释是否有数据支持。脚本入口对通过返回 0、不通过返回 1、读不到文件或空输入返回 2，调用方需要按此协议解释结果。
 
-还要分清检测前后两个版本。`skills/html-review/SKILL.md` L23、L103—114 规定检测失败后给上游一次定向修正，修正后直接输出，不再复检。这限制了修正成本，也留下质量未知：第一次报告只描述旧 HTML，不能把“已修改”写成“复检通过”。formatter 的失败分支还允许检查脚本异常时输出当前最佳 HTML，并记录 `review_skill_failed`。这些降级都应随产物传递，而不是在转换成功时被抹去。[修正策略：S24](https://jiuchenm.github.io/workbuddy-study/#S24)、[formatter 异常表 L204—211：S60](https://jiuchenm.github.io/workbuddy-study/#S60)
+假设销售报告的 HTML 得到上述 94 分，随后缺失元素已补上。`skills/html-review/SKILL.md` L23、L103—114 规定检测失败后只作一次定向修正，直接输出，不再复检。于是第一次报告只描述修正前的 HTML，修正后的质量仍未知。formatter 还允许检查脚本异常时输出当前最佳 HTML，记录 `review_skill_failed`。转换成功只能说明转换结果，不能把这些未验证状态清掉。[修正策略：S24](https://jiuchenm.github.io/workbuddy-study/#S24)、[formatter 异常表 L204—211：S60](https://jiuchenm.github.io/workbuddy-study/#S60)
 
 ## 表格重算不能只看退出码
 
-回到生成独立 `summary.xlsx` 的假设。若写入的是数值 200 和 50，结果可以直接读回核对；若写入公式，总额单元格只是 `=SUM(B2:B3)` 这样的表达式，预览器还可能需要缓存结果。`skills/excel-generation/SKILL.md` L158—188 要求含公式时重算，并读取结构化结果。[生成流程约定：S26](https://jiuchenm.github.io/workbuddy-study/#S26)
+回到独立 `summary.xlsx`：假设 B2 写入 200、B3 写入 50，总额 B4 写入 `=SUM(B2:B3)`。公式字符串说明如何计算，缓存值保存上一次计算的结果；有些读取方或预览器只读缓存。写入公式后若没有得到缓存，文件即使存在，也可能显示空白。`skills/excel-generation/SKILL.md` L158—188 因此要求含公式时重算并读取结构化结果。直接写入数值的任务则可读回核对，不需要为了形式补跑重算。[生成流程约定：S26](https://jiuchenm.github.io/workbuddy-study/#S26)
 
-实际 `skills/excel-generation/scripts/recalc.py` 的 `recalc` 先尝试 LibreOffice，失败后尝试 Python `formulas` 引擎求值并回填缓存；两者都未能取得完整缓存时，只能静态分析，返回 `error`。静态层即使没找到明显结构错误，也不能证明已经算出结果。`engine` 标记实际走到哪层，结果还要分为 `status: success`、`status: errors_found` 和顶层 `error`：分别表示扫描未见公式错误、已经发现公式错误、没有完成所需重算。[脚本 L690—793：S62](https://jiuchenm.github.io/workbuddy-study/#S62)
+实际 `skills/excel-generation/scripts/recalc.py` 的 `recalc` 先尝试 LibreOffice，失败后尝试 Python `formulas` 引擎求值并回填缓存；两者都未能取得完整缓存时，只能静态分析，返回 `error` 和 `engine: static`。静态层即使没找到明显结构错误，也不能证明已经算出结果。`engine` 标记实际走到哪层，结果还要分为 `status: success`、`status: errors_found` 和顶层 `error`：分别表示扫描未见公式错误、已经发现公式错误、没有完成所需重算。[脚本 L690—793：S62](https://jiuchenm.github.io/workbuddy-study/#S62)
 
-它的 `main` 仅在结果含 `error` 时非零退出，所以 `errors_found` 也会 exit 0。这个设计与 HTML review 不同：前者的进程成功可以表示“成功完成了一次发现错误的检查”，后者的退出码直接区分通过与不通过。调用方需要读各自协议，不能写一个通用的“exit 0 就交付”。本例应确认重算成功、`total_errors` 为零，再核对业务期望值 250。即使公式没有报错，误写成只求和 B2 得到 200 仍可能通过错误码扫描；业务验算负责发现这类范围错误。
+它的 `main` 仅在结果含 `error` 时非零退出，所以 `errors_found` 也会 exit 0。与 HTML review 对照，前者可以成功完成“发现错误”的检查，后者用退出码区分通过与不通过。调用方需要读取各自返回协议。本例应先确认 `status: success`、`total_errors: 0`，再核对业务期望值 250：如果公式误写成 `=SUM(B2)`，得到的 200 没有公式错误码，却漏掉华南销售。**公式检查与业务验算分别回答能否求值和算的是否是用户要的数。**
 
 ## 保存与展示是最后的独立动作
 
 原位编辑还有内存与磁盘的距离。SheetAgent 的 `hooks/hooks.json` 把保存脚本接到 `SubagentStop`；`hooks/save-on-subagent-stop.mjs` L149—198 查询编辑器池，对 `is_dirty` 且有 `file_id` 的实例调用保存。`saveWithRetry` 对占用错误最多尝试三次，每次间隔 1.5 秒；其他错误或调用异常不会无限重试。这是补充保存动作，不能替代汇总内容检查。[保存 Hook L101—207：S27](https://jiuchenm.github.io/workbuddy-study/#S27)
 
-更关键的是，单文件保存失败时脚本只记录 `unsaved`，外层异常也只记录 `fatal`，随后仍执行 `process.exit(0)`。所以“Hook 进程成功结束”不证明所有脏文件已保存。对于 sales.xlsx，最终需要看到目标实例的保存结果，不能拿子 Agent 的完成文本或 Hook 的退出码代替。保存脚本的遍历对象是池中的脏实例，也不是从用户请求自动推导出的唯一目标文件。
+单文件保存失败时脚本只记录 `unsaved`，外层异常也只记录 `fatal`，随后仍执行 `process.exit(0)`。所以“Hook 进程成功结束”不证明所有脏文件已保存。对于 sales.xlsx，最终需要看到目标实例的保存结果，不能拿子 Agent 的完成文本或 Hook 的退出码代替。保存脚本遍历的是池中的脏实例，没有从用户请求推导出唯一目标文件。
 
-DOCX 路线则约定转换成功后立即用 `present_files` 打开最终文件，并记录 `present_files_opened`。假设报告已经转换，但预览失败，就应分别保留“文件已生成”和“预览尚未完成”；若 HTML 经过一次修改却未复检，还要保留这一质量状态。一个可信交付需要说明实际文件在哪里、哪项检查做过、是否成功保存和展示。每个证据回答一个问题，不能让最后一句“完成”吞掉中途仍未解决的状态。
+DOCX 路线约定转换成功后立即用 `present_files` 打开最终文件，并记录 `present_files_opened`。假设报告转换成功但预览失败，可以说明文件已生成，同时保留预览尚未完成；按该契约，也不能声明 S3 全部完成。转换失败则返回错误和 Markdown 或 HTML 降级信息，不能把备用内容当成已生成的 DOCX。[转换结果与出口：S61](https://jiuchenm.github.io/workbuddy-study/#S61)
+
+用户最终收到的交付说明应让他找到实际文件，并知道哪些条件已经确认。销售表需要对应正确工作簿、包含 200/50/250、公式结果可读取，原位编辑还需要目标实例保存成功。报告需要沿最新内容稿与 HTML 转换，保留修正后未复检等质量状态，再分别确认文件和预览结果。这样，每个验收结论都指向具体对象与版本；未解决的失败仍能被下一步处理。
 
 <details>
 <summary>面试怎么回答</summary>
 
-**一分钟回答：** 文档 Agent 先确定交付物身份：生成新的 xlsx 与在原工作簿增加 sheet 是不同路线。交接时既要有真实路径，也要有工具返回的编辑器 ID；DOCX 则按 Markdown、HTML、DOCX 的产物类型连接阶段，但短篇有优先路径，角色不一定是独立 subagent。验收要区分业务结果、脚本检查、保存和预览。pipeline-state 是审计记录；HTML 修正后未复检不能称通过；重算 exit 0 可能仍有公式错误；保存 Hook exit 0 也可能留下未保存文件。
+**一分钟回答：** 文档 Agent 的任务要交付正确文件，所以先确定要生成新的 xlsx 还是修改原工作簿，再把路径、编辑器 ID 和原始请求交清。DOCX 创作按 Markdown、HTML、DOCX 连接阶段，编排层传实际路径；短篇有优先流程，阶段角色也不一定是独立 subagent。验收分别看业务内容、质量检查、重算、保存和预览。pipeline-state 只是审计记录，HTML 修正后未复检不能称通过，重算 exit 0 可能仍有公式错误，保存 Hook exit 0 也可能留下未保存文件。这是 5.6.2 安装材料的静态分析，运行效果还需实际证据。
 
 **追问一：为什么有路径还要 file_id？** 路径定位磁盘文件，ID 定位当前工具要操作的编辑器实例。两者需要由解析工具建立对应关系，不能让模型自行猜测。安装材料的三层交接约定存在分歧，应检查字段实际传递与最终操作对象。
 
 **追问二：为什么 completed 不能代表验收通过？** completed 往往只描述阶段推进。审计一致性检查可以非阻塞，修正后的 HTML 可能未复检，保存也可能失败。验收必须指明检查对象的版本和返回结果，才能知道哪个结论有证据。
+
+**追问三：云文档能直接复用这套本地流程吗？** 要先确认交付对象。本地 file_id 指编辑器实例；云文档 Skill 面向特定平台和服务，需要查询工具参数并使用宿主提供的鉴权。安装了能力说明没有证明当前会话具有票据、权限或已成功写入云文档。
 
 </details>
 

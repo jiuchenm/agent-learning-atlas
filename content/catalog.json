@@ -3,6 +3,7 @@
     "id": "llm-basics",
     "title": "一次 LLM 请求到底发生了什么",
     "stage": "foundation",
+    "kind": "core",
     "prerequisites": [],
     "topic": "补充",
     "order": 1,
@@ -18,12 +19,13 @@
       "llm-basics-source-5",
       "llm-basics-source-6"
     ],
-    "updated": "2026-09-28"
+    "updated": "2026-09-30"
   },
   {
     "id": "prompt",
     "title": "Prompt：把要求写成可执行的任务",
     "stage": "foundation",
+    "kind": "optional",
     "prerequisites": [
       "llm-basics"
     ],
@@ -40,12 +42,13 @@
       "prompt-source-4",
       "prompt-source-5"
     ],
-    "updated": "2026-09-28"
+    "updated": "2026-09-30"
   },
   {
     "id": "context-window",
     "title": "Context Window：模型这一轮能看到什么",
     "stage": "foundation",
+    "kind": "core",
     "prerequisites": [
       "llm-basics"
     ],
@@ -62,12 +65,13 @@
       "context-window-source-4",
       "context-window-source-5"
     ],
-    "updated": "2026-09-28"
+    "updated": "2026-09-30"
   },
   {
     "id": "agent-basics",
     "title": "Agent 与 Workflow：谁来决定下一步",
     "stage": "foundation",
+    "kind": "core",
     "prerequisites": [
       "prompt",
       "context-window"
@@ -82,17 +86,18 @@
       "agent-basics-source-1",
       "agent-basics-source-2"
     ],
-    "updated": "2026-09-28"
+    "updated": "2026-09-30"
   },
   {
     "id": "function-calling",
     "title": "Function Calling：模型如何请求调用函数",
     "stage": "single",
+    "kind": "core",
     "prerequisites": [
       "agent-basics"
     ],
     "topic": "14",
-    "order": 5,
+    "order": 6,
     "summary": "从工具定义和参数，到执行结果回传，走完一次调用。",
     "goal": "模型如何请求调用函数",
     "track": "single",
@@ -102,18 +107,19 @@
       "function-calling-source-2",
       "function-calling-source-3"
     ],
-    "updated": "2026-09-28"
+    "updated": "2026-09-30"
   },
   {
     "id": "mcp",
-    "title": "MCP：工具如何接入不同的 Agent 应用",
+    "title": "MCP：连接 Agent 应用与外部能力的协议",
     "stage": "single",
+    "kind": "core",
     "prerequisites": [
       "function-calling"
     ],
     "topic": "15",
-    "order": 6,
-    "summary": "沿一次工具接入，分清协议、客户端、服务端与后端权限。",
+    "order": 7,
+    "summary": "从 Host、Client、Server 到发现与调用：协议怎样复用工具接入，哪些责任仍在应用。",
     "goal": "工具如何接入不同的 Agent 应用",
     "track": "single",
     "minutes": 18,
@@ -127,17 +133,18 @@
       "mcp-source-7",
       "mcp-source-8"
     ],
-    "updated": "2026-09-28"
+    "updated": "2026-09-30"
   },
   {
     "id": "agent-state",
     "title": "任务状态：对话之外还要保存什么",
     "stage": "single",
+    "kind": "core",
     "prerequisites": [
       "function-calling"
     ],
     "topic": "6基础拆出",
-    "order": 7,
+    "order": 8,
     "summary": "保存目标、进度和已完成动作，理解中断之后如何继续。",
     "goal": "对话之外还要保存什么",
     "track": "single",
@@ -146,17 +153,18 @@
       "langgraph-state",
       "agent-state-source-2"
     ],
-    "updated": "2026-09-28"
+    "updated": "2026-09-30"
   },
   {
     "id": "tool-reliability",
     "title": "工具失败：超时以后能直接重试吗",
     "stage": "single",
+    "kind": "core",
     "prerequisites": [
       "agent-state"
     ],
     "topic": "14拆出",
-    "order": 8,
+    "order": 9,
     "summary": "区分失败与结果未知，理解重试、幂等和重复提交。",
     "goal": "超时以后能直接重试吗",
     "track": "single",
@@ -167,59 +175,62 @@
       "tool-reliability-source-3",
       "tool-reliability-source-4"
     ],
-    "updated": "2026-09-28"
+    "updated": "2026-09-30"
   },
   {
     "id": "planning",
-    "title": "Planning：任务该拆到多细",
+    "title": "Planning：Agent 怎样制定并修订任务计划",
     "stage": "single",
+    "kind": "core",
     "prerequisites": [
       "agent-state"
     ],
     "topic": "16",
-    "order": 9,
-    "summary": "沿任务依赖拆步骤，用观察结果修订计划并控制成本。",
-    "goal": "任务该拆到多细",
+    "order": 10,
+    "summary": "沿一次报修调查理解计划、前置条件、局部重规划和停止。",
+    "goal": "Agent 怎样制定并修订任务计划",
     "track": "single",
     "minutes": 19,
     "sourceIds": [
       "agent-basics-source-1"
     ],
-    "updated": "2026-09-28"
+    "updated": "2026-09-30"
   },
   {
     "id": "agent-memory",
-    "title": "Memory：哪些信息值得跨轮保留",
+    "title": "Agent Memory：跨任务信息怎样保存、取回和更新",
     "stage": "single",
+    "kind": "optional",
     "prerequisites": [
       "context-window",
       "agent-state"
     ],
     "topic": "17",
-    "order": 10,
-    "summary": "决定哪些信息跨轮保留，以及怎样更新、检索和遗忘。",
-    "goal": "哪些信息值得跨轮保留",
+    "order": 11,
+    "summary": "沿一次跨任务材料准备，理解记忆的写入、取回、冲突、更新与停用。",
+    "goal": "跨任务信息怎样保存、取回和更新",
     "track": "single",
     "minutes": 18,
     "sourceIds": [
       "agent-memory-source-1",
       "agent-memory-source-2"
     ],
-    "updated": "2026-09-28"
+    "updated": "2026-09-30"
   },
   {
     "id": "compact",
-    "title": "/compact：长对话怎样压缩后继续工作",
+    "title": "上下文压缩：长对话怎样保留继续任务所需信息",
     "stage": "single",
+    "kind": "optional",
     "prerequisites": [
       "context-window",
       "agent-state",
       "agent-memory"
     ],
     "topic": "补充 /compact compaction 上下文压缩 自动压缩",
-    "order": 11,
-    "summary": "从长任务的历史记录到下一轮输入，理解压缩保留什么、丢掉什么，以及如何继续核验。",
-    "goal": "长对话怎样压缩后继续工作",
+    "order": 12,
+    "summary": "用长任务的 token 预算与摘要例子理解后续输入如何缩短、任务怎样继续。",
+    "goal": "长对话怎样保留继续任务所需信息",
     "track": "single",
     "minutes": 20,
     "sourceIds": [
@@ -233,19 +244,46 @@
       "compact-source-8",
       "compact-source-9"
     ],
-    "updated": "2026-09-28"
+    "updated": "2026-09-30"
+  },
+  {
+    "id": "codex-compact",
+    "title": "Codex /compact 与 Responses compaction：同一任务怎样续接",
+    "stage": "single",
+    "kind": "optional",
+    "prerequisites": [
+      "compact"
+    ],
+    "topic": "补充 /compact Codex Responses",
+    "order": 13,
+    "summary": "沿同一份导出任务，分清 Codex CLI 手动/自动入口、Responses 两种压缩模式及下一轮输入契约。",
+    "goal": "Codex 与 Responses 压缩后怎样续接任务",
+    "track": "single",
+    "minutes": 18,
+    "sourceIds": [
+      "compact-source-1",
+      "compact-source-2",
+      "compact-source-3",
+      "compact-source-4",
+      "compact-source-5",
+      "compact-source-6",
+      "compact-source-7",
+      "compact-source-9"
+    ],
+    "updated": "2026-09-30"
   },
   {
     "id": "reflection",
-    "title": "Reflection：再检查一次什么时候有用",
+    "title": "Reflection：Agent 怎样用反馈修订输出",
     "stage": "single",
+    "kind": "optional",
     "prerequisites": [
       "planning"
     ],
     "topic": "18",
-    "order": 12,
-    "summary": "比较自我检查与外部验证，找到有效修订和无效循环的边界。",
-    "goal": "再检查一次什么时候有用",
+    "order": 14,
+    "summary": "用失败输入、反馈和复查理解修订循环，分清自检与外部验证。",
+    "goal": "Agent 怎样用反馈修订输出",
     "track": "single",
     "minutes": 17,
     "sourceIds": [
@@ -253,20 +291,21 @@
       "reflection-source-2",
       "reflection-source-3"
     ],
-    "updated": "2026-09-28"
+    "updated": "2026-09-30"
   },
   {
     "id": "cot",
-    "title": "CoT：让模型分步推理意味着什么",
+    "title": "Chain-of-Thought：分步推理与可核验的中间步骤",
     "stage": "single",
+    "kind": "optional",
     "prerequisites": [
       "prompt",
       "agent-basics"
     ],
     "topic": "19",
-    "order": 13,
+    "order": 15,
     "summary": "理解分步推理提示怎样工作，哪些过程不能当成事实证明。",
-    "goal": "让模型分步推理意味着什么",
+    "goal": "分步推理与可核验的中间步骤",
     "track": "single",
     "minutes": 17,
     "sourceIds": [
@@ -275,18 +314,19 @@
       "cot-source-3",
       "agent-basics-source-2"
     ],
-    "updated": "2026-09-28"
+    "updated": "2026-09-30"
   },
   {
     "id": "agent-security",
     "title": "Agent 权限：读到一段话不等于获得授权",
     "stage": "single",
+    "kind": "core",
     "prerequisites": [
       "mcp",
       "tool-reliability"
     ],
     "topic": "补充",
-    "order": 14,
+    "order": 16,
     "summary": "区分读取资料和接受指令，让工具能力服从真实授权。",
     "goal": "读到一段话不等于获得授权",
     "track": "single",
@@ -296,18 +336,19 @@
       "agent-security-source-2",
       "agent-security-source-3"
     ],
-    "updated": "2026-09-28"
+    "updated": "2026-09-30"
   },
   {
     "id": "rag-basics",
     "title": "RAG：为什么回答前还要查资料",
     "stage": "retrieval",
+    "kind": "core",
     "prerequisites": [
       "context-window",
       "agent-basics"
     ],
     "topic": "RAG总览",
-    "order": 15,
+    "order": 17,
     "summary": "把资料接入、检索和生成串起来，追踪回答的证据来自哪里。",
     "goal": "为什么回答前还要查资料",
     "track": "retrieval",
@@ -319,17 +360,18 @@
       "rag-basics-source-4",
       "rag-basics-source-5"
     ],
-    "updated": "2026-09-28"
+    "updated": "2026-09-30"
   },
   {
     "id": "document-parsing",
     "title": "文档解析：PDF 里的字为何不能直接入库",
     "stage": "retrieval",
+    "kind": "core",
     "prerequisites": [
       "rag-basics"
     ],
     "topic": "8",
-    "order": 16,
+    "order": 18,
     "summary": "从 PDF 页面恢复文字、表格和结构，保留可回溯的位置。",
     "goal": "PDF 里的字为何不能直接入库",
     "track": "retrieval",
@@ -338,17 +380,18 @@
       "document-parsing-source-1",
       "document-parsing-source-2"
     ],
-    "updated": "2026-09-28"
+    "updated": "2026-09-30"
   },
   {
     "id": "chunking",
     "title": "Chunking：一份文档该切多大",
     "stage": "retrieval",
+    "kind": "core",
     "prerequisites": [
       "document-parsing"
     ],
     "topic": "9",
-    "order": 17,
+    "order": 19,
     "summary": "用完整条款和例外说明，比较分块粒度、重叠与父子结构。",
     "goal": "一份文档该切多大",
     "track": "retrieval",
@@ -358,17 +401,18 @@
       "chunking-source-2",
       "chunking-source-3"
     ],
-    "updated": "2026-09-28"
+    "updated": "2026-09-30"
   },
   {
     "id": "embeddings",
     "title": "Embedding：相似句子怎样变成相近的向量",
     "stage": "retrieval",
+    "kind": "core",
     "prerequisites": [
-      "chunking"
+      "rag-basics"
     ],
     "topic": "10",
-    "order": 18,
+    "order": 20,
     "summary": "把文本编码为可比较的向量，再为实际检索选择模型。",
     "goal": "相似句子怎样变成相近的向量",
     "track": "retrieval",
@@ -379,17 +423,18 @@
       "embeddings-source-3",
       "embeddings-source-4"
     ],
-    "updated": "2026-09-28"
+    "updated": "2026-09-30"
   },
   {
     "id": "vector-index",
     "title": "向量索引：HNSW 怎样用速度换召回",
     "stage": "retrieval",
+    "kind": "optional",
     "prerequisites": [
       "embeddings"
     ],
     "topic": "11",
-    "order": 19,
+    "order": 21,
     "summary": "沿图搜索观察近似检索，理解内存、延迟与召回的交换。",
     "goal": "HNSW 怎样用速度换召回",
     "track": "retrieval",
@@ -401,17 +446,19 @@
       "vector-index-source-4",
       "vector-index-source-5"
     ],
-    "updated": "2026-09-28"
+    "updated": "2026-09-30"
   },
   {
     "id": "hybrid-search",
     "title": "混合检索：关键词与向量怎样一起找证据",
     "stage": "retrieval",
+    "kind": "core",
     "prerequisites": [
-      "vector-index"
+      "rag-basics",
+      "embeddings"
     ],
     "topic": "12",
-    "order": 20,
+    "order": 22,
     "summary": "让关键词与语义检索互补，手算一次排名融合。",
     "goal": "关键词与向量怎样一起找证据",
     "track": "retrieval",
@@ -423,17 +470,18 @@
       "hybrid-search-source-4",
       "vector-index-source-4"
     ],
-    "updated": "2026-09-28"
+    "updated": "2026-09-30"
   },
   {
     "id": "reranking",
     "title": "Reranking：召回之后为什么再排一次",
     "stage": "retrieval",
+    "kind": "core",
     "prerequisites": [
-      "hybrid-search"
+      "rag-basics"
     ],
     "topic": "13",
-    "order": 21,
+    "order": 23,
     "summary": "重新比较问题与候选文段，理解相关性、证据支持和成本。",
     "goal": "召回之后为什么再排一次",
     "track": "retrieval",
@@ -444,20 +492,20 @@
       "reranking-source-3",
       "reranking-source-4"
     ],
-    "updated": "2026-09-28"
+    "updated": "2026-09-30"
   },
   {
     "id": "langchain",
-    "title": "LangChain：框架替应用包住了哪些工作",
+    "title": "LangChain：组织 LLM 应用的模型、消息、工具与 Agent",
     "stage": "frameworks",
+    "kind": "optional",
     "prerequisites": [
-      "function-calling",
-      "rag-basics"
+      "function-calling"
     ],
     "topic": "5",
-    "order": 22,
-    "summary": "在模型、消息与工具之间，辨认框架提供的抽象和边界。",
-    "goal": "框架替应用包住了哪些工作",
+    "order": 24,
+    "summary": "从一次订单查询认识模型、消息、工具和 Agent 循环，再判断何时需要框架。",
+    "goal": "认识 LangChain 的核心接口与一次 Agent 运行",
     "track": "frameworks",
     "minutes": 18,
     "sourceIds": [
@@ -467,21 +515,21 @@
       "langchain-source-4",
       "langchain-source-5"
     ],
-    "updated": "2026-09-28"
+    "updated": "2026-09-30"
   },
   {
     "id": "langgraph",
-    "title": "LangGraph：把 Agent 运行写成一张状态图",
+    "title": "LangGraph：用状态图编排可恢复的 Agent 工作流",
     "stage": "frameworks",
+    "kind": "optional",
     "prerequisites": [
       "agent-state",
-      "planning",
-      "langchain"
+      "planning"
     ],
     "topic": "6",
-    "order": 23,
+    "order": 25,
     "summary": "把节点、边、状态与恢复放进一次可追踪的运行。",
-    "goal": "把 Agent 运行写成一张状态图",
+    "goal": "理解状态图、暂停和恢复的职责",
     "track": "frameworks",
     "minutes": 19,
     "sourceIds": [
@@ -491,19 +539,18 @@
       "langgraph-source-4",
       "langgraph-source-5"
     ],
-    "updated": "2026-09-28"
+    "updated": "2026-09-30"
   },
   {
     "id": "multi-agent",
     "title": "多 Agent：什么时候分工真的划算",
     "stage": "frameworks",
+    "kind": "core",
     "prerequisites": [
-      "planning",
-      "agent-memory",
-      "reflection"
+      "planning"
     ],
     "topic": "20",
-    "order": 24,
+    "order": 26,
     "summary": "比较单个与多个 Agent 的分工、通信和失败成本。",
     "goal": "什么时候分工真的划算",
     "track": "frameworks",
@@ -512,20 +559,21 @@
       "multi-agent-source-1",
       "agent-basics-source-1"
     ],
-    "updated": "2026-09-28"
+    "updated": "2026-09-30"
   },
   {
     "id": "autogen",
-    "title": "AutoGen：对话式协作怎样运行和停止",
+    "title": "AutoGen：用消息与团队组织多 Agent 协作",
     "stage": "frameworks",
+    "kind": "optional",
     "prerequisites": [
       "multi-agent",
       "agent-state"
     ],
     "topic": "7",
-    "order": 25,
-    "summary": "从消息流到团队终止，区分 AgentChat 与 Core 的职责。",
-    "goal": "对话式协作怎样运行和停止",
+    "order": 27,
+    "summary": "沿查询者与检查者的四个回合，理解 AgentChat、Core 和终止条件。",
+    "goal": "理解 AutoGen 怎样组织多 Agent 消息与停止",
     "track": "frameworks",
     "minutes": 17,
     "sourceIds": [
@@ -536,21 +584,22 @@
       "autogen-stop",
       "autogen-source-6"
     ],
-    "updated": "2026-09-28"
+    "updated": "2026-09-30"
   },
   {
     "id": "agent-metrics",
-    "title": "Agent 评估：一次任务成功到底怎么算",
+    "title": "Agent 评估：从任务成功到失败定位",
     "stage": "interview",
+    "kind": "core",
     "prerequisites": [
-      "reranking",
-      "tool-reliability",
-      "multi-agent"
+      "agent-basics",
+      "function-calling",
+      "tool-reliability"
     ],
     "topic": "21",
-    "order": 26,
-    "summary": "定义任务成功、漏调用和延迟口径，建立可复查的评估。",
-    "goal": "一次任务成功到底怎么算",
+    "order": 28,
+    "summary": "先定义任务和分母，再沿十个假设任务定位漏调、误调与结果错误。",
+    "goal": "从任务成功率找到失败发生在哪一步",
     "track": "interview",
     "minutes": 18,
     "sourceIds": [
@@ -559,18 +608,20 @@
       "agent-metrics-source-4",
       "rag-basics-source-5"
     ],
-    "updated": "2026-09-28"
+    "updated": "2026-09-30"
   },
   {
     "id": "context-budget-case",
-    "title": "面试案例：召回 20 段，窗口只能放 5 段",
+    "title": "RAG 案例：20 段证据只能选 5 段时怎样取舍",
     "stage": "interview",
+    "kind": "case-study",
     "prerequisites": [
-      "reranking",
-      "agent-metrics"
+      "rag-basics",
+      "context-window",
+      "reranking"
     ],
     "topic": "22",
-    "order": 27,
+    "order": 29,
     "summary": "在有限 token 预算里选择互补证据，而非只取排名前几段。",
     "goal": "召回 20 段，窗口只能放 5 段",
     "track": "interview",
@@ -580,36 +631,37 @@
       "context-budget-case-source-2",
       "rag-basics-source-5"
     ],
-    "updated": "2026-09-28"
+    "updated": "2026-09-30"
   },
   {
     "id": "business-scope",
-    "title": "业务抽象：怎样判断一个需求需要 Agent",
-    "stage": "interview",
+    "title": "业务需求拆解：什么时候需要 Agent",
+    "stage": "foundation",
+    "kind": "core",
     "prerequisites": [
-      "agent-basics",
-      "agent-metrics"
+      "agent-basics"
     ],
     "topic": "23",
-    "order": 28,
-    "summary": "从用户任务和约束出发，判断用普通程序、Workflow 还是 Agent。",
-    "goal": "怎样判断一个需求需要 Agent",
-    "track": "interview",
+    "order": 5,
+    "summary": "从用户任务和交付边界出发，选择普通程序、固定 Workflow 或 Agent。",
+    "goal": "先定义任务，再判断是否需要 Agent",
+    "track": "foundation",
     "minutes": 18,
     "sourceIds": [
       "agent-basics-source-1"
     ],
-    "updated": "2026-09-28"
+    "updated": "2026-09-30"
   },
   {
     "id": "agent-prd",
-    "title": "Agent PRD：把愿望写成验收条件",
+    "title": "Agent PRD：为 Agent 写清任务、权限与验收",
     "stage": "interview",
+    "kind": "core",
     "prerequisites": [
       "business-scope"
     ],
     "topic": "24",
-    "order": 29,
+    "order": 30,
     "summary": "把目标写成验收条件、失败样例与人工接手规则。",
     "goal": "把愿望写成验收条件",
     "track": "interview",
@@ -618,18 +670,19 @@
       "rag-basics-source-1",
       "agent-prd-source-2"
     ],
-    "updated": "2026-09-28"
+    "updated": "2026-09-30"
   },
   {
     "id": "agent-roi",
     "title": "Agent ROI：省下时间以后，收益在哪里",
     "stage": "interview",
+    "kind": "core",
     "prerequisites": [
       "agent-prd",
       "agent-metrics"
     ],
     "topic": "25",
-    "order": 30,
+    "order": 31,
     "summary": "算清采用率、节约时间和完整成本，辨别收益与现金。",
     "goal": "省下时间以后，收益在哪里",
     "track": "interview",
@@ -638,18 +691,19 @@
       "agent-roi-source-2",
       "agent-roi-source-3"
     ],
-    "updated": "2026-09-28"
+    "updated": "2026-09-30"
   },
   {
     "id": "project-story",
     "title": "项目面试：怎样说清自己做了什么",
     "stage": "interview",
+    "kind": "case-study",
     "prerequisites": [
       "agent-prd",
       "agent-metrics"
     ],
     "topic": "26",
-    "order": 31,
+    "order": 32,
     "summary": "围绕真实贡献、选择依据与失败复盘组织项目回答。",
     "goal": "怎样说清自己做了什么",
     "track": "interview",
@@ -658,18 +712,19 @@
       "project-story-source-1",
       "project-story-source-2"
     ],
-    "updated": "2026-09-28"
+    "updated": "2026-09-30"
   },
   {
     "id": "agent-iteration",
     "title": "团队迭代：新模型上线前要比较什么",
     "stage": "interview",
+    "kind": "core",
     "prerequisites": [
       "agent-metrics",
       "agent-prd"
     ],
     "topic": "27",
-    "order": 32,
+    "order": 33,
     "summary": "用固定任务集比较新旧版本，设计灰度、协作与回滚。",
     "goal": "新模型上线前要比较什么",
     "track": "interview",
@@ -680,17 +735,18 @@
       "agent-iteration-source-4",
       "agent-iteration-source-5"
     ],
-    "updated": "2026-09-28"
+    "updated": "2026-09-30"
   },
   {
     "id": "transformer-basics",
     "title": "Transformer：一个 token 怎样读懂前文",
     "stage": "model",
+    "kind": "core",
     "prerequisites": [
       "llm-basics"
     ],
     "topic": "1",
-    "order": 33,
+    "order": 34,
     "summary": "跟随几个 token 经过 Attention、前馈层和残差，理解生成。",
     "goal": "一个 token 怎样读懂前文",
     "track": "model",
@@ -700,17 +756,18 @@
       "transformer-basics-source-2",
       "agent-memory-source-2"
     ],
-    "updated": "2026-09-28"
+    "updated": "2026-09-30"
   },
   {
     "id": "sft",
     "title": "SFT：示范答案怎样变成模型的学习信号",
     "stage": "model",
+    "kind": "core",
     "prerequisites": [
       "transformer-basics"
     ],
     "topic": "2",
-    "order": 34,
+    "order": 35,
     "summary": "从示范答案到训练目标，理解数据、监督位置与参数更新。",
     "goal": "示范答案怎样变成模型的学习信号",
     "track": "model",
@@ -720,19 +777,21 @@
       "sft-source-2",
       "sft-source-3"
     ],
-    "updated": "2026-09-28"
+    "updated": "2026-09-30"
   },
   {
     "id": "rlhf",
-    "title": "RLHF：人类偏好怎样影响模型回答",
+    "title": "RLHF：人类比较怎样改变模型的回答倾向",
     "stage": "model",
+    "kind": "core",
     "prerequisites": [
-      "sft"
+      "sft",
+      "rl-foundations"
     ],
     "topic": "3",
-    "order": 35,
-    "summary": "把人类比较转成偏好信号，理解奖励、策略优化与局限。",
-    "goal": "人类偏好怎样影响模型回答",
+    "order": 37,
+    "summary": "沿偏好比较、奖励模型和 KL 约束，理解人类反馈怎样改变生成倾向。",
+    "goal": "人类比较怎样改变模型的回答倾向",
     "track": "model",
     "minutes": 18,
     "sourceIds": [
@@ -740,38 +799,62 @@
       "rlhf-source-3",
       "rlhf-source-4"
     ],
-    "updated": "2026-09-28"
+    "updated": "2026-09-30"
   },
   {
     "id": "rl-foundations",
-    "title": "强化学习：一次成功怎样改变下一次选择",
-    "stage": "research",
+    "title": "强化学习入门：状态、奖励、回报与优势",
+    "stage": "model",
+    "kind": "core",
     "prerequisites": [
-      "rlhf",
-      "agent-metrics"
+      "sft",
+      "agent-basics"
     ],
     "topic": "高级RL",
     "order": 36,
-    "summary": "连接状态、行动和回报，再认识优势估计与策略更新。",
-    "goal": "一次成功怎样改变下一次选择",
-    "track": "research",
+    "summary": "用订单 Agent 的教学任务理解回合、奖励、回报、优势与策略更新。",
+    "goal": "状态、奖励、回报与优势怎样构成训练信号",
+    "track": "model",
     "minutes": 18,
     "sourceIds": [
       "ppo",
       "math",
       "rl-foundations-source-3"
     ],
-    "updated": "2026-09-28"
+    "updated": "2026-09-30"
+  },
+  {
+    "id": "ppo-grpo",
+    "title": "PPO 与 GRPO：两种策略更新如何使用优势信号",
+    "stage": "research",
+    "kind": "optional",
+    "prerequisites": [
+      "sft",
+      "rl-foundations"
+    ],
+    "topic": "高级RL",
+    "order": 38,
+    "summary": "用同一订单任务手算 PPO 裁剪与 GRPO 组内优势，理解训练信号与失效边界。",
+    "goal": "PPO 与 GRPO 怎样利用优势信号更新策略",
+    "track": "research",
+    "minutes": 20,
+    "sourceIds": [
+      "ppo",
+      "math",
+      "rl-foundations-source-3"
+    ],
+    "updated": "2026-09-30"
   },
   {
     "id": "moe",
     "title": "MoE：参数很多，为什么每次只用一部分",
     "stage": "research",
+    "kind": "core",
     "prerequisites": [
       "transformer-basics"
     ],
     "topic": "高级MoE",
-    "order": 37,
+    "order": 39,
     "summary": "跟随 token 选择专家，分清总参数、激活计算和通信代价。",
     "goal": "参数很多，为什么每次只用一部分",
     "track": "research",
@@ -780,17 +863,18 @@
       "moe-source-1",
       "moe-source-2"
     ],
-    "updated": "2026-09-28"
+    "updated": "2026-09-30"
   },
   {
     "id": "mhc",
-    "title": "mHC：多条残差流怎样避免越混越乱",
+    "title": "mHC 论文解读：多条残差流怎样受约束",
     "stage": "research",
+    "kind": "case-study",
     "prerequisites": [
       "transformer-basics"
     ],
     "topic": "高级mHC",
-    "order": 38,
+    "order": 40,
     "summary": "从残差多流的混合问题理解约束，并手算一个小矩阵。",
     "goal": "多条残差流怎样避免越混越乱",
     "track": "research",
@@ -799,18 +883,19 @@
       "mhc-source-1",
       "mhc"
     ],
-    "updated": "2026-09-28"
+    "updated": "2026-09-30"
   },
   {
     "id": "dsec",
-    "title": "DSec：Agent 训练为什么需要专门的执行环境",
+    "title": "DSec 论文解读：Agent 训练环境怎样供给轨迹",
     "stage": "research",
+    "kind": "case-study",
     "prerequisites": [
       "rl-foundations",
       "tool-reliability"
     ],
     "topic": "高级DSec",
-    "order": 39,
+    "order": 41,
     "summary": "理解长任务训练中的沙盒生命周期、吞吐、隔离与恢复。",
     "goal": "Agent 训练为什么需要专门的执行环境",
     "track": "research",
@@ -818,15 +903,16 @@
     "sourceIds": [
       "dsec"
     ],
-    "updated": "2026-09-28"
+    "updated": "2026-10-01"
   },
   {
     "id": "electron-chromium-processes",
     "title": "Electron 与 Edge/Chromium：进程怎样创建、通信和退出",
     "stage": "workbuddy",
+    "kind": "implementation",
     "prerequisites": [],
     "topic": "桌面与浏览器进程管理",
-    "order": 54,
+    "order": 56,
     "summary": "从两个标签页和跨站 iframe 出发，解释进程创建、IPC、隔离、导航、崩溃和关窗后的后台状态。",
     "goal": "窗口、网页与操作系统进程怎样对应，以及谁管理它们的生命周期",
     "track": "workbuddy",
@@ -852,12 +938,13 @@
       "electron-process-source-18",
       "electron-process-source-19"
     ],
-    "updated": "2026-09-29"
+    "updated": "2026-10-01"
   },
   {
     "id": "workbuddy-session",
     "title": "WorkBuddy：一次请求怎样穿过桌面、Daemon 与 CLI",
     "stage": "workbuddy",
+    "kind": "implementation",
     "prerequisites": [
       "electron-chromium-processes",
       "agent-basics",
@@ -865,7 +952,7 @@
       "mcp"
     ],
     "topic": "WorkBuddy 安装实现",
-    "order": 55,
+    "order": 57,
     "summary": "从窗口输入到 ACP 会话，解释 main、Daemon、sidecar、CLI 与事件回传。",
     "goal": "一次请求怎样穿过桌面、Daemon 与 CLI",
     "track": "workbuddy",
@@ -885,18 +972,19 @@
       "wb-S50",
       "wb-S51"
     ],
-    "updated": "2026-09-28"
+    "updated": "2026-10-01"
   },
   {
     "id": "workbuddy-context",
     "title": "WorkBuddy：模式配置怎样变成模型上下文",
     "stage": "workbuddy",
+    "kind": "implementation",
     "prerequisites": [
       "workbuddy-session",
       "prompt"
     ],
     "topic": "WorkBuddy 安装实现",
-    "order": 56,
+    "order": 58,
     "summary": "沿 Craft→Plan 推导 handler、collectors、模板选择和最终 CLI 参数。",
     "goal": "模式配置怎样变成模型上下文",
     "track": "workbuddy",
@@ -908,18 +996,19 @@
       "wb-S07",
       "wb-S08"
     ],
-    "updated": "2026-09-28"
+    "updated": "2026-10-01"
   },
   {
     "id": "workbuddy-skills",
     "title": "WorkBuddy：Skill 从目录发现到工具执行",
     "stage": "workbuddy",
+    "kind": "implementation",
     "prerequisites": [
       "workbuddy-context",
       "function-calling"
     ],
     "topic": "WorkBuddy 安装实现",
-    "order": 57,
+    "order": 59,
     "summary": "跟踪目录扫描、同名覆盖、frontmatter、Promise 缓存与正文展开。",
     "goal": "Skill 从目录发现到工具执行",
     "track": "workbuddy",
@@ -934,18 +1023,19 @@
       "wb-S53",
       "wb-S54"
     ],
-    "updated": "2026-09-28"
+    "updated": "2026-10-01"
   },
   {
     "id": "workbuddy-tools",
     "title": "WorkBuddy 的工具层：会话怎样取得一个可调用的 MCP 工具",
     "stage": "workbuddy",
+    "kind": "implementation",
     "prerequisites": [
       "workbuddy-skills",
       "agent-security"
     ],
     "topic": "WorkBuddy 安装实现",
-    "order": 58,
+    "order": 60,
     "summary": "解释工具投影、签名会话、服务端复查、动态凭据和工具清单变化。",
     "goal": "会话怎样取得一个可调用的 MCP 工具",
     "track": "workbuddy",
@@ -960,17 +1050,18 @@
       "wb-S40",
       "wb-S41"
     ],
-    "updated": "2026-09-28"
+    "updated": "2026-10-01"
   },
   {
     "id": "workbuddy-artifacts",
     "title": "WorkBuddy：文档与表格任务怎样交接和验收",
     "stage": "workbuddy",
+    "kind": "case-study",
     "prerequisites": [
       "workbuddy-tools"
     ],
     "topic": "WorkBuddy 安装实现",
-    "order": 59,
+    "order": 61,
     "summary": "从文件身份和类型交接到重算、保存、预览，逐项检查完成证据。",
     "goal": "文档与表格任务怎样交接和验收",
     "track": "workbuddy",
@@ -990,18 +1081,19 @@
       "wb-S61",
       "wb-S62"
     ],
-    "updated": "2026-09-28"
+    "updated": "2026-10-01"
   },
   {
     "id": "workbuddy-orchestration",
-    "title": "WorkBuddy：角色切换、团队协作与代码工作流",
+    "title": "WorkBuddy 研究工作流：角色、团队与代码编排怎样配合",
     "stage": "workbuddy",
+    "kind": "implementation",
     "prerequisites": [
-      "workbuddy-artifacts",
+      "workbuddy-session",
       "multi-agent"
     ],
     "topic": "WorkBuddy 安装实现",
-    "order": 60,
+    "order": 62,
     "summary": "对比三种编排语义，跟踪研究 pipeline、软预算和投票失败分支。",
     "goal": "角色切换、团队协作与代码工作流",
     "track": "workbuddy",
@@ -1014,18 +1106,19 @@
       "wb-S42",
       "wb-S66"
     ],
-    "updated": "2026-09-28"
+    "updated": "2026-09-30"
   },
   {
     "id": "workbuddy-history",
     "title": "WorkBuddy：长对话怎样整理历史、压缩并继续执行",
     "stage": "workbuddy",
+    "kind": "implementation",
     "prerequisites": [
-      "workbuddy-orchestration",
+      "workbuddy-session",
       "compact"
     ],
     "topic": "WorkBuddy 安装实现",
-    "order": 61,
+    "order": 63,
     "summary": "解释历史筛选、工具配对、工程压缩、模型摘要和取消后的恢复。",
     "goal": "长对话怎样整理历史、压缩并继续执行",
     "track": "workbuddy",
@@ -1039,18 +1132,20 @@
       "wb-S59",
       "wb-S65"
     ],
-    "updated": "2026-09-28"
+    "updated": "2026-09-30"
   },
   {
     "id": "workbuddy-recovery",
     "title": "WorkBuddy 的会话恢复：预热、旧回调与请求重放",
     "stage": "workbuddy",
+    "kind": "implementation",
     "prerequisites": [
-      "workbuddy-history",
+      "workbuddy-session",
+      "agent-state",
       "tool-reliability"
     ],
     "topic": "WorkBuddy 安装实现",
-    "order": 62,
+    "order": 64,
     "summary": "跟踪预热进程身份、epoch、取消序号和不可盲目重发的请求。",
     "goal": "预热、旧回调与请求重放",
     "track": "workbuddy",
@@ -1064,19 +1159,20 @@
       "wb-S55",
       "wb-S56"
     ],
-    "updated": "2026-09-28"
+    "updated": "2026-09-30"
   },
   {
     "id": "enterprise-agent-tenancy",
     "title": "企业 Agent 多租户：甲公司的助手为什么看不到乙公司的资料",
     "stage": "agent-platform",
+    "kind": "core",
     "prerequisites": [
       "agent-security",
       "mcp",
       "agent-state"
     ],
     "topic": "腾讯 JD · Agent 平台工程",
-    "order": 63,
+    "order": 65,
     "summary": "沿一次报销查询检查身份、检索、工具、状态和部署边界。",
     "goal": "甲公司的助手为什么看不到乙公司的资料",
     "track": "agent-platform",
@@ -1092,19 +1188,20 @@
       "tenancy-approaches",
       "tenancy-aws"
     ],
-    "updated": "2026-09-29"
+    "updated": "2026-10-01"
   },
   {
     "id": "agent-runtime-sandbox",
     "title": "Agent Runtime 与沙箱：运行代码时谁守住边界",
     "stage": "agent-platform",
+    "kind": "core",
     "prerequisites": [
       "agent-state",
       "tool-reliability",
       "agent-security"
     ],
     "topic": "腾讯 JD · Agent 平台工程",
-    "order": 64,
+    "order": 66,
     "summary": "跟随一次代码执行，理解环境创建、隔离、恢复和回收。",
     "goal": "运行代码时谁守住边界",
     "track": "agent-platform",
@@ -1120,19 +1217,20 @@
       "runtime-e2b-snapshots",
       "dsec"
     ],
-    "updated": "2026-09-29"
+    "updated": "2026-10-01"
   },
   {
     "id": "agent-protocols",
     "title": "ACP、A2A、MCP：一次任务经过哪几层协议",
     "stage": "agent-platform",
+    "kind": "optional",
     "prerequisites": [
       "mcp",
       "multi-agent",
       "agent-state"
     ],
     "topic": "腾讯 JD · Agent 平台工程",
-    "order": 65,
+    "order": 67,
     "summary": "从 IDE、远端 Agent 到文档工具，分清会话、任务与调用。",
     "goal": "一次任务经过哪几层协议",
     "track": "agent-platform",
@@ -1147,19 +1245,19 @@
       "mcp-source-2",
       "mcp-source-5"
     ],
-    "updated": "2026-09-29"
+    "updated": "2026-10-01"
   },
   {
     "id": "agent-observability",
     "title": "Agent 可观测性：用户说卡住了，怎样定位断点",
     "stage": "agent-platform",
+    "kind": "core",
     "prerequisites": [
       "agent-state",
-      "tool-reliability",
-      "agent-metrics"
+      "tool-reliability"
     ],
     "topic": "腾讯 JD · Agent 平台工程",
-    "order": 66,
+    "order": 68,
     "summary": "用一次工具超时串起 Trace、日志、指标、Eval 和 Guardrail。",
     "goal": "用户说卡住了，怎样定位断点",
     "track": "agent-platform",
@@ -1173,12 +1271,13 @@
       "otel-genai-metrics",
       "agent-metrics-source-3"
     ],
-    "updated": "2026-09-29"
+    "updated": "2026-09-30"
   },
   {
     "id": "agent-harness-delivery",
     "title": "AI Coding Harness：从一句需求到可验收代码",
     "stage": "agent-platform",
+    "kind": "core",
     "prerequisites": [
       "prompt",
       "context-window",
@@ -1186,7 +1285,7 @@
       "tool-reliability"
     ],
     "topic": "腾讯 JD · Agent 平台工程",
-    "order": 67,
+    "order": 69,
     "summary": "看一项接口改动如何经过 spec、上下文、执行、测试和发布关卡。",
     "goal": "从一句需求到可验收代码",
     "track": "agent-platform",
@@ -1201,6 +1300,51 @@
       "harness-github-workflows",
       "harness-github-environments"
     ],
-    "updated": "2026-09-29"
+    "updated": "2026-10-01"
+  },
+  {
+    "id": "runtime-sandbox-series",
+    "title": "Agent Runtime 与沙箱：企业开发面试五篇系列大纲",
+    "stage": "agent-platform",
+    "kind": "optional",
+    "prerequisites": [
+      "agent-runtime-sandbox"
+    ],
+    "topic": "腾讯 JD · Runtime 与 Sandbox 系列规划",
+    "order": 69.5,
+    "summary": "用企业报表任务串起五篇深读规划，覆盖高级岗位架构追问。",
+    "goal": "规划运行环境、隔离、恢复和成本的五篇学习路线",
+    "track": "agent-platform",
+    "minutes": 20,
+    "sourceIds": [
+      "sandbox-series-source-1",
+      "sandbox-series-source-2",
+      "sandbox-series-source-3",
+      "sandbox-series-source-4",
+      "sandbox-series-source-5",
+      "sandbox-series-source-6",
+      "sandbox-series-source-7",
+      "sandbox-series-source-8",
+      "sandbox-series-source-9",
+      "sandbox-series-source-10",
+      "sandbox-series-source-11",
+      "sandbox-series-source-12",
+      "sandbox-series-source-13",
+      "sandbox-series-source-14",
+      "sandbox-series-source-15",
+      "sandbox-series-source-16",
+      "sandbox-series-source-17",
+      "sandbox-series-source-18",
+      "sandbox-series-source-19",
+      "sandbox-series-source-20",
+      "sandbox-series-source-21",
+      "sandbox-series-source-22",
+      "sandbox-series-source-23",
+      "sandbox-series-source-24",
+      "sandbox-series-source-25",
+      "sandbox-series-source-26",
+      "sandbox-series-source-27"
+    ],
+    "updated": "2026-10-01"
   }
 ]

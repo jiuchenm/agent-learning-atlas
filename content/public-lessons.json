@@ -10,6 +10,7 @@
   "planning",
   "agent-memory",
   "compact",
+  "codex-compact",
   "reflection",
   "cot",
   "agent-security",
@@ -35,6 +36,7 @@
   "sft",
   "rlhf",
   "rl-foundations",
+  "ppo-grpo",
   "moe",
   "mhc",
   "dsec",
@@ -51,5 +53,6 @@
   "agent-runtime-sandbox",
   "agent-protocols",
   "agent-observability",
-  "agent-harness-delivery"
+  "agent-harness-delivery",
+  "runtime-sandbox-series"
 ]

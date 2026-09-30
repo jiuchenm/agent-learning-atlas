@@ -1,83 +1,101 @@
-# ACP、A2A、MCP：一次 Agent 任务到底经过了哪几层协议
+# ACP、A2A、MCP：一次任务经过哪几层协议
 
-假设你在 IDE 里问编码助手：“退款金额算错了。先查业务规则和相关代码，给我定位与修复建议，暂时别改文件。”编辑器显示助手正在读代码。过了一会儿，它又显示“向规则助手查询退款口径”，随后查到一份规则文档，最后给出建议。你可能会问：编辑器怎么知道助手做到哪一步？“规则助手”与“查文档的工具”有什么差别？这些调用是不是都可以用一个叫 Agent 协议的东西包起来？
+你在 IDE 里问编码助手：“退款金额算错了。先查业务规则和相关代码，给我定位与修复建议，暂时别改文件。”界面先显示“正在读代码”，随后显示“向规则助手查询退款口径”，最后给出建议。这里至少有三个问题：IDE 怎样收到进度？规则助手怎样接住一项需要继续追问的任务？它又怎样查到规则文档？
 
-协议（protocol）约定两端怎样发送消息、使用哪些字段、怎样理解状态；它不是替双方完成业务逻辑的程序。这正好是三个协议容易被说成一回事的地方。本文里的 ACP 指 **Agent Client Protocol**，也就是编辑器等客户端与编码 Agent 通信的协议。A2A 是 **Agent2Agent Protocol**，用于一个 Agent 系统向另一个 Agent 系统发消息、跟踪任务。MCP 是 **Model Context Protocol**，用于 Agent 应用连接工具、资源等外部能力。缩写 ACP 在别的项目里也可能另有所指；这里限定为 [Agent Client Protocol 官方介绍](https://agentclientprotocol.com/get-started/introduction)。
+**协议（protocol）**是通信双方共同遵守的约定：消息按什么格式发送，字段是什么意思，如何关联请求与结果，状态变化怎样解释。**ACP、A2A、MCP 分别覆盖不同的通信边界**，可以出现在同一次任务里。协议规定双方怎样交互；框架提供组织程序和运行任务的代码。实现可以采用某个框架，也可以自行编写，不能把这三个协议当成互斥产品。[ACP 介绍](https://agentclientprotocol.com/get-started/introduction)、[A2A 1.0.0 规范](https://a2a-protocol.org/v1.0.0/specification/)、[MCP 架构](https://modelcontextprotocol.io/specification/2025-06-18/architecture)分别给出了各自的角色与边界。
 
-下文的退款系统、规则助手、文档服务和具体结果全是假设的。它们用于观察消息怎样流转，不代表腾讯或任何公司的内部架构。你可以先读 [MCP](#/lesson/mcp)、[多 Agent](#/lesson/multi-agent) 和 [任务状态](#/lesson/agent-state)，但这里也会把需要用到的概念说明白。
+## 三层通信分别连接谁
 
-## 第一跳：IDE 怎样把你的话交给编码 Agent
+本文的 ACP 专指 **Agent Client Protocol**，用于编辑器等客户端与编码 Agent 通信。A2A 是 **Agent2Agent Protocol**，用于独立 Agent 系统之间交换消息、委托和跟踪任务。MCP 是 **Model Context Protocol**，用于 Agent 应用接入工具、资源等外部能力。ACP 这一缩写在其他项目中也可能有别的展开，查资料时要核对全名。
 
-用户点“发送”时，直接接收输入的是 IDE。假设 IDE 通过 ACP 连接一个独立运行的编码 Agent。协议把 IDE 叫 **Client**，把负责工作、可能调用模型和工具的程序叫 **Agent**。这和 MCP 里的 Client 不是同一个角色；“Client”只表示当前这条连接的发起或使用方，脱离协议上下文就容易误会。
+把退款排查中的参与者放在对应边界上，就能看出区别：
 
-按 [ACP v2 的流程说明](https://agentclientprotocol.com/protocol/v2/overview)，双方先用 `initialize` 确认版本与能力，再用 `session/new` 建立会话。会话有 `sessionId`，承载这次交互的上下文。IDE 发 `session/prompt`，内容是你的退款问题。Agent 接受这条用户消息后，返回对应的 `messageId`；后面的工作进度、输出和结束状态，通过 `session/update` 通知陆续送回 IDE。[官方 Prompt Lifecycle](https://agentclientprotocol.com/protocol/v2/prompt-lifecycle) 特别区分了“消息已接收”和“工作已完成”：`session/prompt` 的响应不等于修复建议已经生成。
+| 协议 | 本例的两端 | 需要跟踪的对象 |
+| --- | --- | --- |
+| ACP | IDE ↔ 编码 Agent | 会话、用户消息、前台工作与工具活动 |
+| A2A | 编码 Agent ↔ 规则助手 | 委托消息、远端任务、任务产物 |
+| MCP | 规则助手内的 Client ↔ 文档 Server | 能力发现、具体工具请求与返回 |
 
-这个区别在真实界面上很有用。假设 IDE 已拿到 `messageId`，屏幕出现你的提问，但 Agent 还在读文件；此时若把消息响应当作任务结束，界面会提前显示“完成”。Agent 可以继续发送 `agent_message_chunk`、`tool_call_update` 或 `state_update`。你看到的“正在读代码”通常是 Agent 向 Client 报告的一项工具活动，而非 IDE 自己猜出来的模型内部状态。最终报告 `idle` 才表示本轮前台工作停下；它也不自动证明每个业务结论都正确。
+下面整条链都是**教学假设**，不代表腾讯或 Microsoft 的实际架构。假设当前规则版本 R5 规定：部分退款不得超过实付金额；订单标价 100 元、实付 80 元，用户申请退款 90 元。代码误用标价作上限，算出 90 元；按本例规则，上限应为 80 元。编码 Agent 需要找出这个差异，并给出建议。
 
-本地运行时，ACP 官方介绍说 Agent 可以是 IDE 启动的子进程，经 stdio 传 JSON-RPC；远程场景可使用 HTTP 或 WebSocket，但官方目前仍把**完整远程支持**标成进行中的工作。[官方介绍](https://agentclientprotocol.com/get-started/introduction) 因此，不能从“支持 ACP”四个字推断任一编辑器已能稳定连接任意云端 Agent。本文依据的是 2026-09-29 读取的 ACP v2 文档；ACP v1 也仍在文档目录中，方法和完成语义应按双方实际协商的版本核对。
+本篇固定使用 **ACP v2 文档、A2A 1.0.0、MCP 2025-06-18**，关键片段核验日期为 2026-10-01。ACP v2 是文档路径的版本标签，本文未取得不可变发布 SHA；不要据此推断具体 IDE 支持 v2。A2A 使用固定版本入口，MCP 沿用本站课程版本，不称为最新版。先修可回看 [MCP](#/lesson/mcp)、[多 Agent](#/lesson/multi-agent)与[任务状态](#/lesson/agent-state)。
 
-还有一个权限问题。你的要求是“先别改文件”。IDE 能通过 ACP 显示 Agent 提出的操作，也可承接 Agent 向用户提出的权限请求；但协议不会凭一句自然语言自动替所有实现强制执行只读。应用需要把会话模式、权限选择和本地执行策略对应起来。官方 [Tool Calls 文档](https://agentclientprotocol.com/protocol/v2/tool-calls) 也把 `tool_call_update` 定义为 Agent **报告**工具执行情况；报告里有工具名，并不等于工具已获得授权，更不等于 IDE 亲自执行了它。
+## 第一跳：ACP 把用户输入和工作进度接回 IDE
 
-## 第二跳：编码 Agent 为什么要找另一个 Agent
+在这条连接中，IDE 是 **Client（客户端）**，编码助手程序是 **Agent**。本地 Agent 可以作为 IDE 启动的子进程，通过 stdio，也就是标准输入输出，交换 JSON-RPC 消息。JSON-RPC 用结构化消息表达方法调用、响应和通知；通知不要求对方逐条返回响应。官方介绍也提到远程 HTTP 或 WebSocket 场景，但仍标注完整远程支持在推进中，所以不能由“支持 ACP”推断任意云端 Agent 都可接入。[ACP 官方介绍](https://agentclientprotocol.com/get-started/introduction)
 
-编码 Agent 能看代码，却未必持有最新的退款规则，也可能被限制不能直接读取业务知识库。假设另一个“规则助手”负责回答规则问题，并可独立查资料、澄清问题、产出带出处的结论。编码 Agent 向它委托：“查退款金额的当前计算口径；只提供解释和来源，不改代码。”这时对话的两端都是有自己执行过程的 Agent 系统。A2A 正是为这种边界设计的。[A2A 1.0.0 规范](https://a2a-protocol.org/latest/specification/) 把发起方称为 A2A Client，把远端执行方称为 A2A Server；“Server”在这里仍是 Agent 系统，不是数据库工具。
+双方先用 `initialize` 协商版本和能力，再用 `session/new` 创建会话，拿到 `sessionId`。**会话是连续交互的上下文**：这次排查和你随后说“再看一下边界条件”，可以发生在同一会话里。IDE 将退款问题放入 `session/prompt`。按本篇的 v2 文档，Agent 把用户消息插入会话后，响应返回 `messageId`。这只确认消息已接受，读代码和生成建议还在后面。[ACP v2 Overview](https://agentclientprotocol.com/protocol/v2/overview)、[Session Setup](https://agentclientprotocol.com/protocol/v2/session-setup)、[Prompt Lifecycle](https://agentclientprotocol.com/protocol/v2/prompt-lifecycle)
 
-编码 Agent 先了解远端能做什么。A2A 的 **Agent Card** 是远端发布的能力说明，包含身份、技能、服务入口及认证要求。它帮助发起方选择合适的 Agent，但看见“会处理退款规则”并不能证明当前身份有权查询某份文档。假设发起方已选择规则助手并获得相应凭据，它发出一条 **Message**，里面有具体问题和必要上下文。远端可以直接回一条 Message，也可以创建一个带唯一 ID 的 **Task**。Task 是可跟踪的工作单元；相关任务还可由 `contextId` 关联。最后的报告或结构化结果可作为 **Artifact** 返回。这里的 Task 不是 IDE 的 ACP 会话，也不是模型某一轮生成。
+Agent 用 `session/update` 通知持续报告工作。例如 `agent_message_chunk` 是回答的一段内容，`tool_call_update` 是某项工具活动的创建或更新，`state_update` 是前台工作状态的变化。此处的**流式更新（streaming）**意味着内容或事件分批到达，IDE 可以边收边显示，不必等整轮结束。它不意味着每一片都已构成完整答案。[ACP v2 Prompt Lifecycle](https://agentclientprotocol.com/protocol/v2/prompt-lifecycle)
 
-我们的假设里，规则助手需要一段时间查询来源，于是返回 Task `T-27`，状态仍在处理中。编码 Agent 把“规则查询进行中”映射回 ACP 的 `session/update`，IDE 才能让你看到进度。稍后规则助手可能把 Task 更新为需要补充输入，例如“你问的是全额退款还是部分退款？”编码 Agent 需要把这个问题带回用户，再把答案发给对应的远端任务。不能看到一个 `T-27` 就假定它已经完成，更不能把状态更新当成最终来源。[A2A 规范的 Send Message、Get Task 与状态定义](https://a2a-protocol.org/latest/specification/) 允许客户端继续获取任务状态及产物；长任务也可以选择流式更新或推送通知，取决于服务端能力和双方使用的绑定。
+本例中，Agent 开始读代码时报告 `running`；需要用户选择退款类型时可报告 `requires_action`；交付建议、结束前台工作后报告 `idle`。`idle` 表示准备接收新 prompt，后台活动仍可能继续发通知。IDE 还应结合输出与停止原因判断本轮是正常结束还是取消，不能只凭 `idle` 显示“退款问题已解决”。[ACP v2 的状态与取消定义](https://agentclientprotocol.com/protocol/v2/prompt-lifecycle)
 
-这意味着 A2A 的“流式”也有自己的对象：任务状态变化、产物片段等。ACP 的流式更新则面向 IDE 如何展示编码 Agent 的消息、工具活动和工作状态。编码 Agent 可以把 A2A 进度转述给 IDE，但两条流之间没有天然的一对一映射；它必须决定哪些远端事件要显示，哪些需要合并或过滤。规则助手若返回“查询中”，编码 Agent 不应对用户显示“规则已核实”。
+工具活动也要读清语义。`tool_call_update` 中的 `toolCallId` 标识会话内的一项工具调用，`status` 报告其进度；它可能对应本地读文件、终端操作或 MCP 调用。IDE 看到“正在搜索规则”只是收到了 Agent 的报告，仍须等实际工具结果。工具名不会赋予权限；必要时 Agent 可通过 `session/request_permission` 请求许可，具体执行限制由应用落实。[ACP v2 Tool Calls](https://agentclientprotocol.com/protocol/v2/tool-calls)
 
-A2A 最新页面在本次核验时标为 **1.0.0**，规范把数据模型、抽象操作和传输绑定分层，列有 JSON-RPC、gRPC、HTTP/REST 等绑定。因此“走 A2A”不足以确定每个部署都发同样的 HTTP JSON 消息。讲具体方法名、字段或 SSE 行为时，要同时说明版本与绑定；这里故意只画语义步骤。[A2A 规范的版本与分层说明](https://a2a-protocol.org/latest/specification/)
+## 第二跳：A2A 把规则查询交给独立 Agent
 
-## 第三跳：规则助手怎样查到文档
+假设编码 Agent 能读项目，却不能直接访问最新规则库。规则助手拥有自己的检索过程，也能追问“全额退款还是部分退款”。这时编码 Agent 委托的是一项**由对方管理执行过程的工作**。如果需求只是调用固定函数查询一条记录，普通 API 或 MCP 工具也可能足够；不必为了出现两个 Agent 就增加一层协议。
 
-规则助手要回答“当前口径”，仍须接入真实资料。假设它连接一台知识库 MCP Server。它内部的 MCP Client 与 Server 初始化，发现 `search_policy` 工具，然后调用它查询退款规则；Server 再访问受控文档系统并返回相关段落和出处。规则助手核对内容后，才把结果作为 A2A Task 的产物送回编码 Agent。原有 [MCP 课程](#/lesson/mcp) 已按固定的 **2025-06-18** 版本解释 `initialize`、`tools/list` 和 `tools/call`；官方 [MCP 架构](https://modelcontextprotocol.io/specification/2025-06-18/architecture) 说明了 Host、Client、Server 的关系，[工具规范](https://modelcontextprotocol.io/specification/2025-06-18/server/tools) 则给出发现与调用的协议结构。
+采用 A2A 时，编码 Agent 是 A2A Client，规则助手是 A2A Server。调用方可先读取 **Agent Card（Agent 能力卡片）**，了解服务接口、技能、可选能力和认证要求。Card 中“支持规则查询”是对方声明的能力，尚未证明这次请求能访问目标文档。[A2A 1.0.0 的 Agent Card 与安全定义](https://a2a-protocol.org/v1.0.0/specification/)
 
-这里有个看似小、却决定排障方向的差别：A2A 的规则助手接下的是“请查清规则并解释”的任务；MCP 的 `search_policy` 暴露的是“按给定参数查资料”的能力。MCP Server 可以很复杂，但 `tools/call` 本身并不承诺替调用方规划任务、追问用户、持续维护 A2A Task。反过来，A2A 远端也可以不用 MCP，直接调用自有 API；用哪种方式获取资料是它的内部实现。
+编码 Agent 发送 **Message（消息）**：“查询退款上限，给出当前版本和出处。”Message 是一次通信内容；**Task（任务）**是服务端管理的一项工作；**Artifact（产物）**是任务交付的结果。A2A 允许直接返回 Message，也允许返回需要继续跟踪的 Task。本例选择后者，拿到 Task `T-27`，其 `id` 标识任务，`status.state` 表示当前状态。它与 ACP `sessionId` 指向不同对象，应由应用保存关联。[A2A 1.0.0 的 Send Message 与数据模型](https://a2a-protocol.org/v1.0.0/specification/)
 
-把整条链写在纸上，就能看到谁在做什么：
+假设规则助手起初没收到退款类型，Task 进入 `TASK_STATE_INPUT_REQUIRED`。编码 Agent 将澄清问题经 ACP 带回 IDE；用户答“部分退款”后，它再发送带有 `taskId` 的 Message，续接 `T-27`。规则助手继续工作，状态可变为 `TASK_STATE_WORKING`，最终交付含规则版本与出处的 Artifact，并进入 `TASK_STATE_COMPLETED`。**等待输入是一种中断状态，成功完成才是相应的终态**；拿到 Task ID 远不等于拿到结论。[A2A 1.0.0 的 Message 与 TaskState](https://a2a-protocol.org/v1.0.0/specification/)
+
+调用方可以用 Get Task 获取当前状态；若服务支持流式操作，也可接收任务状态事件 `TaskStatusUpdateEvent` 和产物更新事件 `TaskArtifactUpdateEvent`。A2A 还定义推送通知等方式。编码 Agent 再选择哪些进度转述为 ACP 更新，两个流没有天然的一对一映射。例如远端说“查到两个候选文档”，IDE 应显示查询进度，不能提前显示“规则已核实”。A2A 1.0.0 把数据模型、抽象操作和 JSON-RPC、gRPC、HTTP/REST 绑定分开；具体方法名、字段写法与流式传输方式还要核对所用绑定。[A2A 1.0.0 的操作与绑定](https://a2a-protocol.org/v1.0.0/specification/)
+
+## 第三跳：MCP 把规则查询落实为工具调用
+
+规则助手还需要真实资料。它所在应用充当 MCP **Host（宿主）**，内部的 **Client** 与文档 **Server（服务端）**通信。这些角色描述的是这条连接，不能把 MCP Client 与第一跳的 IDE Client 混为同一个程序。规则助手也可以直接调用自有 API；接入 MCP 是本例选定的实现方式。[MCP 2025-06-18 架构](https://modelcontextprotocol.io/specification/2025-06-18/architecture)
+
+Client 与 Server 先用 `initialize` 确认协议版本、协商能力，完成初始化后，再用 `tools/list` 发现工具。假设 Server 暴露 `search_policy`，其 `inputSchema` 说明参数格式。Client 用 `tools/call` 传入工具 `name` 与 `arguments`；Server 查询文档系统，返回 `content`，若工具执行报错，可以通过 `isError` 表达。[MCP 生命周期](https://modelcontextprotocol.io/specification/2025-06-18/basic/lifecycle)、[Tools 规范](https://modelcontextprotocol.io/specification/2025-06-18/server/tools)
+
+`search_policy`、R5 和本例的金额都属于教学假设。假设此次返回了 R5 的部分退款条款及文档链接，规则助手核对后形成 A2A Artifact。编码 Agent 再对照代码，发现上限使用了标价。最终 IDE 展示：“本例申请 90 元，实付 80 元，按 R5 应限定为 80 元；当前代码得出 90 元，建议检查上限变量。”这才走完输入、资料查询、代码对照和建议交付，文件仍未修改。
+
+可把整个例子的消息方向记为：
 
 ```text
-用户 ──输入问题──> IDE
-IDE ──ACP 会话与 prompt──> 编码 Agent
-编码 Agent ──A2A Message / Task──> 规则助手
-规则助手 ──MCP tools/list、tools/call──> 知识库 MCP Server ──> 文档系统
-                 资料与出处 <─────────────────────────────────────┘
-编码 Agent <──A2A 状态和 Artifact── 规则助手
-IDE <──ACP session/update── 编码 Agent ──> 用户看到建议
+IDE ──ACP prompt──> 编码 Agent ──A2A Message / Task──> 规则助手
+规则助手内的 Client ──MCP tools/call──> 文档 Server ──> 文档系统
+IDE <──ACP update── 编码 Agent <──A2A Artifact── 规则助手 <──工具结果
 ```
 
-假设文档系统返回：“在规则版本 R5 中，部分退款的上限按实付金额计算”，同时给出文档链接。规则助手的回答应带上“R5、部分退款、实付金额”这些限定。编码 Agent 再检查代码里是否把标价当成上限，并向你提出“可能的错误点、对应代码位置和建议修改”，仍不改文件。要是远端只返回一段没有版本和出处的文字，编码 Agent 应继续核验或标明不确定，不能因为它来自另一个 Agent 就提高可信度。
+MCP 工具成功返回，仍需核对文档是否适用、版本是否当前、代码是否真的走到该分支。`tools/call` 没有替调用方管理 A2A Task 的承诺；A2A Artifact 也不会自动成为可靠证据。若只有无版本、无出处的一段文字，最终建议必须保留这个缺口。协议增加互操作性，同时也增加版本协商、状态关联和故障处理成本。
 
-## 三条边界都要重新看权限
+## 取消与鉴权：沿三条边界逐层处理
 
-这条链跨过了至少三道权限边界。IDE 和编码 Agent 的边界决定能读哪些本地文件、哪些动作需要用户确认；编码 Agent 与规则助手的边界决定允许发出哪些业务信息、对方能否访问指定资料；规则助手与 MCP Server、文档后端的边界决定工具调用者实际能查到什么。一次“登录成功”或 Agent Card 宣称某项技能，都不等于每一层已经授权。
+假设规则查询期间你按下“停止”。IDE 可发送 ACP `session/cancel`，Agent 应尽快停止相关模型与工具调用，完成中止并发出剩余更新后，以带 `cancelled` 停止原因的 `idle` 更新收尾。已发出的 A2A Task 还需要编码 Agent 请求 Cancel Task；规范明确说取消成功没有保证，应查看返回的任务状态。规则助手若还在等 MCP 请求，也可对该请求发送 `notifications/cancelled`，其中 `requestId` 指向待取消请求；接收方在请求已结束或无法取消时可以忽略它。[ACP v2 取消](https://agentclientprotocol.com/protocol/v2/prompt-lifecycle)、[A2A 1.0.0 Cancel Task](https://a2a-protocol.org/v1.0.0/specification/)、[MCP 取消](https://modelcontextprotocol.io/specification/2025-06-18/basic/utilities/cancellation)
 
-例如，你给编码 Agent 发了含内部订单号的问题，编码 Agent 不能仅因为 A2A 支持委托就把整个本地对话及工作目录交给远端。它应只发送完成规则查询所需的信息。A2A 规范要求服务端认证请求，并在 Task 可见性上做授权范围限制；Agent Card 说明认证方案，但凭据取得、业务权限判断另有职责。[A2A 规范的认证与授权部分](https://a2a-protocol.org/latest/specification/) MCP 也强调 Host 对数据共享和工具调用的用户控制，具体访问限制还须由 Server 与后端实施。[MCP 2025-06-18 规范](https://modelcontextprotocol.io/specification/2025-06-18)
+因此，应用需要关联会话、远端 Task 和工具请求，分别记录“已请求停止”与“已确认停止”。取消也不承诺回滚已发生的业务副作用。本例只有查询；若另一个任务已经修改数据，撤销或补偿要由业务系统另行设计。
 
-如果规则助手随后要求写回一条退款配置，授权需要重新判断。用户只授权“查清并建议”，没有授权远端修改。A2A 状态中的“等待授权”本身也不能充当操作许可；规范明确区分需要授权的状态和授权决定的范围。编码 Agent 应先停在边界处，向用户说明要改什么、由谁改，再按适用策略处理。协议负责传达状态与请求，不能替人决定“这次写入是否应该发生”。
+**认证（authentication）确认调用者身份，授权（authorization）决定允许它做什么。** ACP v2 的 `authMethods` 描述 Agent 提供的登录方式；适用的方法可经 `auth/login` 登录。A2A 的 Agent Card 可声明安全方案，服务端还须限制任务与数据的可见范围。MCP 2025-06-18 的授权规范针对 HTTP 传输，授权能力是可选的；stdio 按该版本应从环境获取凭据，不应直接套用 HTTP 授权流程。[ACP v2 Authentication](https://agentclientprotocol.com/protocol/v2/authentication)、[A2A 安全定义](https://a2a-protocol.org/v1.0.0/specification/)、[MCP Authorization](https://modelcontextprotocol.io/specification/2025-06-18/basic/authorization)
 
-遇到故障时，按跳排查比笼统说“Agent 协议坏了”有效：IDE 没收到进度，先看 ACP 的会话与通知；规则查询迟迟不结束，看 A2A Task 状态、是否等待输入或认证；远端已接任务却查不到资料，看 MCP 工具发现、调用结果及文档后端权限。每一层都可能返回“请求被接收”，却还没有拿到最终事实。
+一次登录不会自动打通三层权限。编码 Agent 向规则助手发送订单信息前，应只选择查询所需且允许分享的内容；远端调用文档工具时仍受 Server 与后端权限约束。若远端要求上传整个项目或写回退款配置，已经超出本例“查清并建议”的授权范围。即使 A2A Task 进入 `TASK_STATE_AUTH_REQUIRED`，状态本身也不授予任何操作权限，授权范围由实现、凭据发行方或扩展定义。[A2A 1.0.0 In-Task Authorization Scope](https://a2a-protocol.org/v1.0.0/specification/)
+
+排障也沿同样的边界：IDE 不显示进度，查 ACP 会话与更新；规则查询不结束，查 A2A Task 是否等待输入或授权；任务已接收但没有文档，查 MCP 能力发现、工具返回与后端权限。具体产品采用哪个版本、是否支持流式与取消、如何限制读写，本篇没有实测，仍需核验其实现。
 
 <details>
 <summary>面试怎么回答</summary>
 
-**一分钟回答：ACP、A2A、MCP 分别解决什么？** 在编码场景里，ACP 规范编辑器等 Client 与编码 Agent 的会话、用户消息、进度和权限交互。A2A 规范一个 Agent 系统向另一个 Agent 系统发现能力、发送消息、跟踪长任务和收取结果。MCP 规范 Host/Client 与工具或资源 Server 的连接、发现和调用。比如 IDE 经 ACP 把问题交给编码 Agent，它经 A2A 委托规则助手，规则助手再经 MCP 查资料。三者可以组合，但 Agent 也可以直接用 API，不要求每个系统同时采用三者。实现细节应按版本和实际授权边界核对。
+**约一分钟回答：ACP、A2A、MCP 分别解决什么？** 协议约定通信格式、对象和状态语义。本文的 ACP 是 Agent Client Protocol，连接 IDE 等 Client 与编码 Agent，管理会话、用户输入和进度展示；A2A 连接独立 Agent 系统，用消息、Task 和 Artifact 表达委托、状态与结果；MCP 连接应用内 Client 与工具或资源 Server，负责能力发现和调用。退款排查可以先经 ACP 送入编码 Agent，再经 A2A 找规则助手，最后经 MCP 查文档。三者可以组合，框架负责具体程序组织。实现时要分别协商版本、关联状态和检查权限；消息被接受不等于完成，取消请求也不等于动作已撤销。
 
-**追问一：ACP 里报告了 `tool_call_update`，是否代表 MCP 调用成功？** 不是。ACP 这条通知面向 IDE 展示 Agent 报告的工具活动。工具可能是本地函数、终端命令或 MCP 工具；报告“开始执行”与拿到成功结果是两个时刻，还要看后续状态和实际工具返回。工具名本身也不授予权限。
+**追问一：ACP `tool_call_update` 能证明 MCP 调用成功吗？** 它报告 Agent 的工具活动，工具也可能是本地函数或终端命令。要结合后续状态和实际返回判断是否成功；成功返回之后，仍要验证资料适用范围。
 
-**追问二：A2A 的 Agent Card 写了某项技能，能直接把全部用户上下文发过去吗？** 不能。Card 帮助发现能力和认证要求，不等于当前请求已经获准。调用方仍应验证远端身份与权限，只发送完成任务需要的上下文；远端也应按调用者身份限制 Task 和数据可见范围。
+**追问二：A2A Task ID 能直接当 ACP Session ID 吗？** 两者指向不同对象。一个 ACP 会话可以发起多项远端任务；A2A Task 也可能接收多轮补充消息。应用保存对应关系，并分别判断生命周期和访问权限。
 
-**追问三：为什么 A2A 的 Task ID 不能直接当 ACP Session ID？** 两者标识的对象不同。ACP Session 是编辑器和编码 Agent 的交互上下文；A2A Task 是远端 Agent 管理的一项具体工作。一个会话可发起多个远端任务，一个远端任务也可能需要补充消息。应用可以保存两者的关联，但不能把 ID 的生命周期、状态与权限直接混用。
+**追问三：用户按停止，为什么不能立即显示“所有任务已取消”？** 三层都有各自的取消对象。远端可能已经完成、无法取消或尚未收到请求。先显示停止请求已发出，再依据各层确认更新状态；已经发生的写入还需要业务补偿。
 
 </details>
 
-练习：仍以上面的假设任务为例。IDE 已收到 ACP `session/prompt` 的接受响应；A2A 规则助手返回 Task `T-27`，状态为等待补充输入；MCP 搜索工具尚未返回结果。此时 IDE 可以向用户显示什么？如果编码 Agent 发现远端请求上传整个本地项目，应该在哪条边界停下？
+## 练习：进度、结果与停止分别怎样显示
+
+沿用本例：ACP 已返回 `messageId`；A2A Task `T-27` 进入 `TASK_STATE_INPUT_REQUIRED`，正在问退款类型；MCP 搜索请求 `42` 尚未返回。用户这时点击停止，远端又提出“请上传整个本地项目”。写出 IDE 当前可显示的一句状态，并说明编码 Agent 应保存哪些关联、在哪个位置阻止上传、还要等待哪些停止证据。
 
 <details>
 <summary>参考思路</summary>
 
-IDE 可以显示“问题已送达编码 Agent，规则查询等待补充输入”，并展示远端具体想澄清什么。它不能显示“任务完成”或编造退款规则，因为 ACP 的接受响应只确认消息进入会话，A2A Task 还未结束，MCP 资料也未取得。编码 Agent 在向 A2A 远端发送项目内容前就该停下：先判断整个项目是否必要、是否符合用户授权和数据共享策略，再请求所需的具体许可。即使获准分享少量文件，远端访问 MCP 文档系统仍由它自己的身份和后端权限约束。
+可以显示“问题已接收，规则查询等待补充输入；停止请求已发出”。不能显示规则已核实或所有动作已停止。编码 Agent 保存 ACP 会话与当前工作、A2A `T-27` 的关联；规则助手另保存 `T-27` 与 MCP 请求 `42` 的关联。本地只能记录远端允许报告的状态，不能假定能直接管理远端请求。
+
+编码 Agent 在把项目内容发往 A2A 远端之前就应阻止上传：先判断必要性、数据共享权限和用户授权范围。停止流程中，分别检查 ACP 带取消原因的前台结束更新、A2A 返回的任务状态，以及规则助手对其内部 MCP 请求的处理结果。MCP 取消通知不保证有确认响应；若远端状态不可见，应明确记录未知，不能补写“已取消”。
 
 </details>
