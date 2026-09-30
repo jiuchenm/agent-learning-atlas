@@ -4,6 +4,8 @@
 
 Agent 评估（evaluation，常简称 eval）需要同时观察任务结果和执行过程。Microsoft Foundry 的评估文档区分系统评估与过程评估，分别覆盖任务完成、工具选择、参数准确性、工具结果利用等方面。内置评估器提供的是检查手段，实际任务的成功标准与统计分母仍需应用团队明确。[Microsoft Foundry：Agent evaluators](https://learn.microsoft.com/en-us/azure/foundry/concepts/evaluation-evaluators/agent-evaluators)
 
+把评估当成一次有答案可核对的试运行更容易理解：输入“查订单 O42 的状态”，给 Agent 可用的只读工具，记录它有没有调用、调用哪个订单、工具返回什么，以及最终是否如实告诉用户。输出不是一个孤立的“86 分”，而是任务成功与否、失败发生在哪一步。随后把一批任务按事先约定的分母统计，才谈得上成功率；[工具可靠性](#/lesson/tool-reliability) 解释工具超时和重试为什么还要单独看。
+
 本课沿用用户源文第 21 节要求的质量、速度、成本与安全范围，建立一组可手算的十任务例子。以下样本、分数、时间与成本全部为教学假设，没有实际运行 Agent 或声称某个产品达到这些成绩。
 
 ## 先约定任务与成功，再选指标

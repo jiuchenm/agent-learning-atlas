@@ -2,9 +2,9 @@
 
 假设你把一张工单交给编码 Agent：“给订单查询接口加一个 `includeCancelled` 参数。”半小时后，它回复“已完成，测试通过”，还附上一段看起来合理的代码。你打开 diff，发现参数已经生效，但默认值是 `true`，旧客户端突然能查到已取消订单。测试确实跑了，只是它写的测试也把这个默认值当成正确行为。要避免这种情况，光把提示词改成“请仔细一点”帮助有限：任务本身没有讲明兼容规则，测试也没有独立的验收标准。
 
-这篇讨论的是一个具体问题：**怎样把开发任务交给 Agent，又能知道它做了什么、哪里失败、能否安全交付？** 这里的 Agent 指能读仓库、改文件、运行命令并根据结果继续工作的程序。它背后有模型，也有围绕模型的运行框架（agent harness）：框架准备上下文和工具，执行工具调用，把结果送回下一轮，并保存任务状态。Anthropic 在评测文章中明确把模型和 harness 视为一起接受评估的系统；Claude Code 的公开介绍也把它定位为会使用代码库和 Git 工作流的编码工具。[Agent eval 的术语与边界](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents)、[Claude Code 官方仓库](https://github.com/anthropics/claude-code)
+这篇讨论的是一个具体问题：**怎样把开发任务交给 Agent，又能知道它做了什么、哪里失败、能否安全交付？** 这里的 Agent 指能读仓库、改文件、运行命令并根据结果继续工作的程序。它背后有模型，也有围绕模型的运行框架（agent harness）。如果只把模型看成“写代码的人”，harness 就像它工作的程序环境：决定这轮给它看哪些文件、开放哪些工具、怎样执行命令、把结果送回哪里，以及何时停止。它还保存任务状态，供后续检查。Anthropic 在评测文章中明确把模型和 harness 视为一起接受评估的系统；Claude Code 的公开介绍也把它定位为会使用代码库和 Git 工作流的编码工具。[Agent eval 的术语与边界](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents)、[Claude Code 官方仓库](https://github.com/anthropics/claude-code)
 
-腾讯这几份招聘 JD 提到的 spec-driven、context engineering、harness，以及代码生成、测试、评测和发布自动化，可以用这条交付链来理解。下面讲的是公开资料支持的**通用工程方法**，不代表腾讯内部系统就是这样实现的。JD 页面是动态加载的；本文未从页面正文核实岗位原话，仅把用户给定的技术主题作为学习范围。
+腾讯这几份招聘 JD 提到的 spec-driven、context engineering、harness，以及代码生成、测试、评测和发布自动化，可以用这条交付链来理解。下面讲的是公开资料支持的**通用工程方法**，不代表腾讯内部系统就是这样实现的。订单接口改动及测试结果均是假设，用来说明每一环该怎样验收。
 
 ## 先把需求写到可以判对错
 
@@ -48,7 +48,7 @@ while 未达到完成条件且仍在预算内:
 生成供人审阅的变更与证据；由发布关卡决定能否上线
 ```
 
-模型生成“运行测试”的建议，真正调用测试进程的是框架或其工具。模型回复“测试通过”也不是测试结果；应保存运行的命令、退出码、测试报告和对应代码版本。如果工具运行失败，harness 可以把错误返回模型让它修正；如果操作越权、预算用尽或同一错误反复出现，则应停止。一个普通 prompt 只告诉模型如何回答，不能单独提供隔离工作目录、工具权限、状态保存、独立测试和发布控制。
+回到 `includeCancelled`：模型先读路由和现有测试，建议修改参数解析；harness 在允许的工作目录里应用改动并运行测试。若 `false` 被错误地当作真值，测试进程返回失败，harness 把真实报错交回模型。模型修正后再跑同一组检查，最后由预先固定的“缺省值仍是 false”断言判断是否满足规格。这条链中的代码执行者是框架或其工具，模型回复“测试通过”不是测试结果；应保存运行的命令、退出码、测试报告和对应代码版本。如果操作越权、预算用尽或同一错误反复出现，harness 应停止。一个普通 prompt 只告诉模型如何回答，不能单独提供隔离工作目录、工具权限、状态保存、独立测试和发布控制。
 
 对长任务，状态保存尤其重要。Anthropic 的长任务实验发现，Agent 可能一次改得太多，中途耗尽上下文，下一轮不知道上一轮做了什么；也可能看见已有进展便过早宣布完成。其公开方案用初始化阶段建立环境，再让后续阶段小步修改、记录进度和 Git 历史。这是该实验的做法，不是所有系统的固定配方。[Effective harnesses for long-running agents](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents)
 
@@ -60,7 +60,7 @@ while 未达到完成条件且仍在预算内:
 
 评测（eval）把这种检查变成一组可重复运行的任务。Anthropic 区分单个任务、每次尝试（trial）、打分器（grader）、完整执行轨迹（trace）和环境最终状态（outcome）。一个编码 Agent 说“修好了”属于轨迹里的文字；真正应核实的是运行后的代码是否通过预先指定的测试，原有行为是否保留。由于模型输出可能变化，同一任务可重复尝试，统计通过率与失败类型。代码测试、静态检查、模型评审和人工评审各有用途，不能用一次主观打分代替可执行断言。[Demystifying evals for AI agents](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents)
 
-这和日常 CI（持续集成）之间有联系，但两者检查的问题不同。CI 在一次提交上运行构建和测试；Agent eval 还会固定任务输入与初始环境，让不同模型、prompt 或 harness 版本分别做同一任务，再比较最终产物和执行过程。譬如设置三个订单接口任务：新增可选参数、保持分页顺序、遇到非法值返回指定错误。每个任务从同一基线开始，每次尝试在独立环境运行，避免上一次的修改污染下一次。这里的“三个任务”只是教学设计，不是一个足以代表真实生产表现的样本。
+这和日常 CI（持续集成）之间有联系，但两者检查的问题不同。CI 是代码每次提交后自动运行构建、测试等检查的流程，它在一次具体提交上回答“这份代码是否通过这些检查”；Agent eval 还会固定任务输入与初始环境，让不同模型、prompt 或 harness 版本分别做同一任务，再比较最终产物和执行过程。譬如设置三个订单接口任务：新增可选参数、保持分页顺序、遇到非法值返回指定错误。每个任务从同一基线开始，每次尝试在独立环境运行，避免上一次的修改污染下一次。这里的“三个任务”只是教学设计，不是一个足以代表真实生产表现的样本。
 
 发布又是下一层。一个常见流程是：Agent 产出 diff；CI 在固定提交上跑测试、构建和检查；工程师审阅语义与风险；通过环境关卡后再部署；部署后看运行指标并保留回滚路径。GitHub Actions 官方文档把 workflow 描述为事件触发、在 runner 上执行 jobs 与 steps；GitHub Environments 支持为部署环境设置保护规则。具体是否需要人工审批、谁有权限、怎样回滚，应由项目制度决定，不能从“用了 Actions”自动推断。[GitHub Actions workflows](https://docs.github.com/en/actions/concepts/workflows-and-actions/workflows)、[GitHub Environments](https://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/manage-environments)
 

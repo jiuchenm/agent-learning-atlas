@@ -1,6 +1,6 @@
 # 项目面试：怎样说清自己做了什么
 
-“我主导了一个企业 Agent 项目，结合 RAG 和工具调用，大幅提升了效率。”这句话包含技术名词、责任和结果，却没有提供可追问的事实：谁遇到了什么问题，候选人具体改了什么，为什么采用这个架构，所谓提升在哪个范围成立。面试官继续问两句，讲述者就可能从“我主导”退回到“团队做了很多”。
+“我主导了一个企业 Agent 项目，结合 RAG 和工具调用，大幅提升了效率。”这里的 RAG 是先检索相关资料再让模型据此回答，工具调用是应用按模型提出的请求执行查询或操作；两者本来应该解释具体做了什么。可这句话只列出技术名词、责任和结果，没有提供可追问的事实：谁遇到了什么问题，候选人具体改了什么，为什么采用这个架构，所谓提升在哪个范围成立。面试官继续问两句，讲述者就可能从“我主导”退回到“团队做了很多”。完整机制可分别看 [RAG 基础](#/lesson/rag-basics) 和 [Function Calling](#/lesson/function-calling)。
 
 项目面试需要把真实工作组织成别人能够理解和核验的说明。Microsoft Careers 的官方建议强调，用与岗位有关的具体经历说明能力，也允许讨论自己会怎样处理某项任务；招聘行为准则要求如实表达技能与经验。因此，真实经历和假设方案都可以有价值，但必须明确区分。[Microsoft：Interview tips](https://careers.microsoft.com/v2/global/en/hiring-tips/interview-tips.html)、[How we hire](https://careers.microsoft.com/v2/global/en/hiring-tips.html)
 

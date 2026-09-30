@@ -2,13 +2,19 @@
 
 假设两个 Agent 一起准备订单回复。一个负责查询并起草，另一个负责检查。第一轮发现缺少依据，第二轮提出修改，第三轮改写以后又收到“还可以更完整”的建议。如果没有明确交付条件，它们可以不断互相回复；如果仅凭任何消息里出现“通过”就结束，又可能在引用别人的文字时提前停止。多 Agent 应用除了需要能对话，还需要规定消息怎样到达、谁接着工作，以及什么证据足以结束。
 
-AutoGen 把这些问题放在不同层次处理。本篇以 2026-09-28 实际查阅的 Microsoft AutoGen stable 文档为范围，讨论 autogen-core 与 autogen-agentchat 的架构。stable 是会更新的文档入口，不是一个不可变的包版本；真正运行时仍应锁定兼容版本。这里不用 v0.2 的旧调用方式，也不把两个角色的协作假定为必然优于单个 Agent。是否值得分工，先看 [多 Agent](#/lesson/multi-agent)。
+AutoGen 是 Microsoft 开源的 Agent 开发框架。程序员可以用它创建能收发消息、调用模型和工具的 Agent，再把多个 Agent 组成团队，安排谁接着做事、何时停止。它本身不负责生成订单回复的内容：回复可以由接入的模型起草，订单状态由应用提供的查询工具取得。开发者仍需指定“查询者”和“检查者”各能做什么、什么结果算完成；AutoGen 负责承载角色之间的消息和运行过程。[AutoGen：AgentChat 官方介绍](https://microsoft.github.io/autogen/stable/user-guide/agentchat-user-guide/index.html)
+
+先有这个整体印象，再看框架内部的分层才有意义。本篇按 2026-09-30 查阅的 Microsoft AutoGen stable 文档解释 `autogen-core` 和 `autogen-agentchat`：前者提供较底层的消息运行机制，后者提供常用 Agent 与团队的接口。你想用两个角色轮流完成上面的任务，通常先从 AgentChat 看起；只有要自定义消息投递和处理方式，才需要深入 Core。stable 文档入口会更新，实际运行时仍要锁定兼容版本。是否值得分工，先看 [多 Agent](#/lesson/multi-agent)。
+
+先只看一次最小往返：用户交代“查 O42 并写待审核草稿”；查询者拿到工具结果后给检查者发一条消息，检查者指出缺少状态时间，查询者改好后再次送检。AutoGen 的团队机制负责让消息到达下一位，终止条件负责让程序在通过检查或达到上限时结束。下面的 Core 和 AgentChat，是实现这两件事时不同深度的接口名称。
 
 ## Core 管消息，AgentChat 管常见协作形式
 
 Core 是事件驱动的底层运行框架。事件驱动（event-driven）表示 Agent 收到消息后，由相应处理函数决定怎么响应，而不是整套系统只能沿一条预先写死的调用栈执行。Agent 运行时（runtime）负责消息投递与处理调度，Agent 自己实现处理逻辑。一个处理函数可以调用模型，也可以只执行普通代码；叫作 Agent 并不要求每收到一条消息都运行一次 LLM。[AutoGen：Core](https://microsoft.github.io/autogen/stable/user-guide/core-user-guide/index.html)
 
 Core 中的消息是可序列化数据。它可以携带任务编号、查询结果或错误，消息本身不应夹带执行逻辑。运行时可以把一条消息直接发给目标 Agent，也可以将消息发布到主题，由订阅者接收。直接请求可以等待处理函数的返回，发布则适合让多个关注该主题的参与者收到事件。消息投递提供通信机制，但谁对任务负责、哪些接收者该响应，仍须由应用定义。[AutoGen：Message and Communication](https://microsoft.github.io/autogen/stable/user-guide/core-user-guide/framework/message-and-communication.html)
+
+“可序列化”在这里是说任务编号、文本和结果等字段能按约定转成可传递的数据，再由接收方读回；它不是把一个正在执行的 Python 函数装进消息。对 O42，检查者要收到的是“草稿 v1、证据 ID、查询时间”，而不是只能收到“请你看看”。这些字段让后续的通过结论能指向同一份草稿和证据。
 
 AgentChat 建在 Core 之上，提供常用 Agent、团队（team）、聊天消息和终止条件等较高层抽象。想要一个查询者与检查者轮流交流，不必先自行实现主题订阅和所有调度细节；需要自定义事件协议或更细的路由行为时，再使用 Core 的接口。AgentChat 与 Core 是上下层关系，不是两个互相竞争的模型，也不能用“前者对话、后者推理”来区分。[AutoGen：AgentChat](https://microsoft.github.io/autogen/stable/user-guide/agentchat-user-guide/index.html)
 

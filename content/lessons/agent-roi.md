@@ -2,7 +2,7 @@
 
 假设一个团队每月处理 10000 个内部请求，演示中的 Agent 能在几十秒内写好答案，于是有人把每单人工处理时间全部算成收益。上线后却发现，员工只在部分任务中使用它，生成内容仍要核对，失败请求还需要人工重新处理。模型费用很低，月度收益却没有按演示推算出现。
 
-投入产出回报率（Return on Investment，ROI）要比较同一范围、同一周期内的增量收益和完整成本。关键不是把一个除法算对，而是解释收益如何发生、哪些任务真正受益，以及没有 Agent 时本来会怎样。本课承接 [Agent PRD](#/lesson/agent-prd) 和 [Agent 评估](#/lesson/agent-metrics)，使用用户源文第 25 节的数字建立一份假设测算，不代表用户或任何团队的实际业绩。
+投入产出回报率（Return on Investment，ROI）要比较同一范围、同一周期内的增量收益和完整成本。本例中的 Agent 是替员工起草、查询并整理请求的应用；它写出答案只是任务的一步，员工是否采用、是否减少核对和返工，才会影响收益。关键不是把一个除法算对，而是解释收益如何发生、哪些任务真正受益，以及没有 Agent 时本来会怎样。本课承接 [Agent PRD](#/lesson/agent-prd) 和 [Agent 评估](#/lesson/agent-metrics)，用下面的数字建立一份假设测算，不代表用户或任何团队的实际业绩。
 
 Azure Well-Architected 的成本优化原则要求成本模型服务于业务目标，并把基础设施、实施、人员和运维纳入考虑；成本优化也不等于一味采用最便宜的技术。[Azure：Cost Optimization design principles](https://learn.microsoft.com/en-us/azure/well-architected/cost-optimization/principles)
 

@@ -2,7 +2,7 @@
 
 假设用户给出一份销售工作簿，说“按地区汇总”。助手算出了正确总额，却把结果另存成新文件，而用户期待在原文件增加一个 sheet；另一位助手生成了 DOCX，回复“已完成”，用户打开才发现它仍是修正前的版本。这些错误不一定发生在模型计算或写作时，也可能发生在交接对象、目标路径或完成判据上。
 
-WorkBuddy 的文档流程把这些责任分散在路由 Skill、领域角色、脚本和保存 Hook 中。本篇依据 2026-09-28 读取的 WorkBuddy 5.6.2 安装材料，解释它们怎样配合，以及哪些约定没有形成强制保证。可先读 [Skill 从发现到执行](#/lesson/workbuddy-skills)。以下例子均为假设，没有打开业务文件或运行供应商程序；来源链接是[安装材料定位索引](https://jiuchenm.github.io/workbuddy-study/#S12)，不是公开源码。下文 entry 省略共同前缀 `resources/plugins/workbuddy-builtin/`。
+这里的 artifact 指任务实际交付的文件，例如改过的工作簿或新生成的 DOCX。用户要的是哪个文件、保存在什么路径、能否打开并满足要求，都属于验收的一部分。WorkBuddy 的文档流程把这些责任分散在路由 Skill、领域角色、脚本和保存 Hook 中；Skill 是任务说明，Hook 是保存时触发的额外处理。本篇依据 2026-09-28 读取的 WorkBuddy 5.6.2 安装材料，解释它们怎样配合，以及哪些约定没有形成强制保证。可先读 [Skill 从发现到执行](#/lesson/workbuddy-skills)。以下例子均为假设，没有打开业务文件或运行供应商程序；来源链接是[安装材料定位索引](https://jiuchenm.github.io/workbuddy-study/#S12)，不是公开源码。下文 entry 省略共同前缀 `resources/plugins/workbuddy-builtin/`。
 
 ## 先决定交付哪一个文件
 

@@ -2,7 +2,7 @@
 
 假设桌面上同时打开两个任务。任务 A 在整理本地文档，任务 B 在查询一个已连接的服务。两个任务都由同一个 App 启动，却不应自动获得对方的全部工具。再假设远端 MCP 在运行中新增了工具，或者登录凭据刚刚刷新。应用既要更新能力，又不能让旧配置把正在运行的任务弄坏。这时，“把 tools/list 的结果交给模型”只完成了很小的一部分工作。
 
-WorkBuddy 5.6.2 的工具实现分布在 App Server、CLI 和领域服务中。本篇沿着配置生成、会话身份、能力查询、实际调用解释它们的分工。先修是 [MCP](#/lesson/mcp) 和 [Function Calling](#/lesson/function-calling)；Skill 目录怎样加载见[上一篇](#/lesson/workbuddy-skills)。下面的任务 A、B 和工具名例子是教学假设；实现事实来自 2026-09-28 读取的安装包，不是一次真实调用日志。
+WorkBuddy 是桌面 Agent 应用；工具层负责把外部能力接到一次具体会话，让模型提出的调用有实际执行入口。这里的 MCP 工具来自服务端暴露的能力，`tools/list` 只是列出候选，真正调用还要经过会话配置、身份和执行检查。WorkBuddy 5.6.2 的工具实现分布在 App Server、CLI 和领域服务中。本篇沿着配置生成、会话身份、能力查询、实际调用解释它们的分工。先修是 [MCP](#/lesson/mcp) 和 [Function Calling](#/lesson/function-calling)；Skill 目录怎样加载见[上一篇](#/lesson/workbuddy-skills)。下面的任务 A、B 和工具名例子是教学假设；实现事实来自 2026-09-28 读取的安装包，不是一次真实调用日志。
 
 ## 模型的工具表由哪几层共同决定
 

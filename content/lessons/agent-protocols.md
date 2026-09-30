@@ -2,7 +2,7 @@
 
 假设你在 IDE 里问编码助手：“退款金额算错了。先查业务规则和相关代码，给我定位与修复建议，暂时别改文件。”编辑器显示助手正在读代码。过了一会儿，它又显示“向规则助手查询退款口径”，随后查到一份规则文档，最后给出建议。你可能会问：编辑器怎么知道助手做到哪一步？“规则助手”与“查文档的工具”有什么差别？这些调用是不是都可以用一个叫 Agent 协议的东西包起来？
 
-这正好是三个协议容易被说成一回事的地方。本文里的 ACP 指 **Agent Client Protocol**，也就是编辑器等客户端与编码 Agent 通信的协议。A2A 是 **Agent2Agent Protocol**，用于一个 Agent 系统向另一个 Agent 系统发消息、跟踪任务。MCP 是 **Model Context Protocol**，用于 Agent 应用连接工具、资源等外部能力。缩写 ACP 在别的项目里也可能另有所指；这里限定为 [Agent Client Protocol 官方介绍](https://agentclientprotocol.com/get-started/introduction)。
+协议（protocol）约定两端怎样发送消息、使用哪些字段、怎样理解状态；它不是替双方完成业务逻辑的程序。这正好是三个协议容易被说成一回事的地方。本文里的 ACP 指 **Agent Client Protocol**，也就是编辑器等客户端与编码 Agent 通信的协议。A2A 是 **Agent2Agent Protocol**，用于一个 Agent 系统向另一个 Agent 系统发消息、跟踪任务。MCP 是 **Model Context Protocol**，用于 Agent 应用连接工具、资源等外部能力。缩写 ACP 在别的项目里也可能另有所指；这里限定为 [Agent Client Protocol 官方介绍](https://agentclientprotocol.com/get-started/introduction)。
 
 下文的退款系统、规则助手、文档服务和具体结果全是假设的。它们用于观察消息怎样流转，不代表腾讯或任何公司的内部架构。你可以先读 [MCP](#/lesson/mcp)、[多 Agent](#/lesson/multi-agent) 和 [任务状态](#/lesson/agent-state)，但这里也会把需要用到的概念说明白。
 

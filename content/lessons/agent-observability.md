@@ -2,15 +2,15 @@
 
 假设公司做了一个报销 Agent。用户问：“查一下我上月的差旅报销，顺便解释为什么有一笔还没到账。”页面转了十几秒，最后只显示“查询失败”。值班同事打开模型服务面板，看到模型请求全部成功，于是怀疑用户网络。但模型成功只说明某次模型调用收到了响应；它无法回答报销系统有没有返回、工具有没有被调用两次、第二次是否因为超时而重复提交。
 
-这正是 Agent 可观测性（observability）要解决的问题：把一次用户任务中的模型、检索、工具和运行环境事件连起来，知道时间花在哪里、错误从哪里开始、用户最终有没有拿到正确结果。腾讯的 [WorkBuddy Managed Agents 岗位](https://careers.tencent.com/jobdesc.html?postId=2077641608832135168)提到 OpenTelemetry Trace、Agent Eval 和 Guardrail；本文用一个假设系统解释它们怎样配合，不描述腾讯的内部实现。案例中的账号、时长和报销状态都是教学设定。
+这正是 Agent 可观测性（observability）要解决的问题：把一次用户任务中的模型、检索、工具和运行环境事件连起来，知道时间花在哪里、错误从哪里开始、用户最终有没有拿到正确结果。它属于运行后的诊断能力；模型重新推理一次，也无法替代未记录的工具结果。腾讯的 [WorkBuddy Managed Agents 岗位](https://careers.tencent.com/jobdesc.html?postId=2077641608832135168)提到 OpenTelemetry Trace、Agent Eval 和 Guardrail；本文用一个假设系统解释它们怎样配合，不描述腾讯的内部实现。案例中的账号、时长和报销状态都是教学设定。
 
-如果还没读过[任务状态](#/lesson/agent-state)与[工具失败](#/lesson/tool-reliability)，先记住两个区别：用户的一次任务可能包含多次模型和工具调用；“请求超时”也不等于远端操作没有发生。
+如果还没读过[任务状态](#/lesson/agent-state)与[工具失败](#/lesson/tool-reliability)，先记住两个区别：用户的一次任务可能包含多次模型和工具调用；“请求超时”也不等于远端操作没有发生。下文会先沿同一个报销查询找故障，再说明 Trace、日志和指标各提供哪块证据。
 
 ## 一次任务为何不能只看最终日志
 
 设这次用户任务叫 `T42`。Agent 先查政策，再调用 `get_claims` 取得用户上月的单据，最后调用 `get_payment_status` 解释一笔未到账的原因。假设第二个工具请求发出后，客户端等了 5 秒就超时，报销系统其实已处理查询，但响应在路上丢了。Agent 又请求一次，最终拿到状态并回答用户。应用记录的“模型成功”和“工具成功”都可能是真的；用户等了 14 秒这件事也是真的。只看任意一条日志，很难拼出原因。
 
-分布式追踪（distributed tracing）给同一次任务一个可关联的 trace。它下面的 span 表示有起点、终点和属性的一段工作，例如“检索政策”“请求模型”“调用报销工具”。父子关系表达调用包含关系；同一个 trace 内的兄弟 span 可以并行，不能单凭页面上的行序就认为它们按顺序执行。[OpenTelemetry：Traces](https://opentelemetry.io/docs/concepts/signals/traces/)解释了 trace、span、父子关系和上下文传播。OpenTelemetry 的 GenAI 语义约定还定义了模型调用、Agent 调用、工具执行等 span 类型；这些是观测数据的命名约定，不会替应用自动装好每一段埋点。[GenAI agent spans](https://github.com/open-telemetry/semantic-conventions-genai/blob/main/docs/gen-ai/gen-ai-agent-spans.md)、[GenAI client spans](https://github.com/open-telemetry/semantic-conventions-genai/blob/main/docs/gen-ai/gen-ai-spans.md)
+分布式追踪（distributed tracing）给同一次任务一个可关联的 trace。你可以把它理解成这次请求的时间账本：T42 是整项报销查询，下面每条 span 是有起点、终点和属性的一段工作，例如“检索政策”“请求模型”“调用报销工具”。父子关系表达调用包含关系；同一个 trace 内的兄弟 span 可以并行，不能单凭页面上的行序就认为它们按顺序执行。[OpenTelemetry：Traces](https://opentelemetry.io/docs/concepts/signals/traces/)解释了 trace、span、父子关系和上下文传播。OpenTelemetry 的 GenAI 语义约定还定义了模型调用、Agent 调用、工具执行等 span 类型；这些是观测数据的命名约定，不会替应用自动装好每一段埋点。[GenAI agent spans](https://github.com/open-telemetry/semantic-conventions-genai/blob/main/docs/gen-ai/gen-ai-agent-spans.md)、[GenAI client spans](https://github.com/open-telemetry/semantic-conventions-genai/blob/main/docs/gen-ai/gen-ai-spans.md)
 
 我们给 T42 画一条教学用 trace，时间从服务端收到请求算起：
 
@@ -33,7 +33,7 @@ T42 用户任务                         0.0 ───────────�
 
 Trace 用于追一条具体任务的路径。日志（logs）记录离散事件，例如工具拒绝原因、重试决定、部署版本；它应能用 trace ID、任务 ID 或调用 ID 关联回路径。指标（metrics）聚合许多任务，回答最近一小时超时率、任务完成延迟、每次任务的工具调用数和 token 用量是否变化。OpenTelemetry 的指标概念文档区分测量值、聚合与时间序列；GenAI 语义约定列出了 Agent 时长、工具调用数、模型 token 等候选指标。[OpenTelemetry：Metrics](https://opentelemetry.io/docs/concepts/signals/metrics/)、[GenAI metrics](https://github.com/open-telemetry/semantic-conventions-genai/blob/main/docs/gen-ai/gen-ai-metrics.md)
 
-同样是“T42 花了 14 秒”，三种信号的用法不同。指标告诉你“这类任务本周 p95 从 9 秒变成 14 秒”；trace 告诉你“T42 多等了一次工具超时”；日志告诉你“第一次超时后，重试策略把它判为可重试”。如果指标突然变差，先按产品版本、工具名和租户群体缩小范围，再抽取 trace；如果只盯一条异常 trace，可能把偶发网络波动当成所有用户的规律。
+同样是“T42 花了 14 秒”，三种信号的用法不同。指标告诉你“这类任务本周 p95 从 9 秒变成 14 秒”；p95 的意思是把耗时从短到长排列，约 95% 的观测值不超过这个位置的值，计算时还要说明所用算法和样本范围。trace 告诉你“T42 多等了一次工具超时”；日志告诉你“第一次超时后，重试策略把它判为可重试”。如果指标突然变差，先按产品版本、工具名和租户群体缩小范围，再抽取 trace；如果只盯一条异常 trace，可能把偶发网络波动当成所有用户的规律。关于样本分母和分位数的完整计算，见[Agent 评估](#/lesson/agent-metrics)。
 
 要算成功率，监控还必须知道任务终态。最后一段模型文本已发送，仍可能有遗漏、误读或越权。离线 Agent Eval 要按预先定义的任务和验收条件复现；线上监控则持续记录真实分布、失败和人工接管。Anthropic 的[Agent eval 说明](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents)把 task、trial、运行轨迹和环境终态分开，这一点也适用于线上诊断。如何设分母与质量指标，可接着读[Agent 评估](#/lesson/agent-metrics)。
 

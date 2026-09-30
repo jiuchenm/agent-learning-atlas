@@ -1,6 +1,6 @@
 # Agent Runtime 与沙箱：让 Agent 运行代码时，谁来守住边界
 
-假设用户给一个数据分析 Agent 上传了 `sales.csv`，请它写段 Python，算出每月销售额并画图。模型生成代码，工具也准备执行了。若平台直接在运行 Agent 服务的机器上调用 Python，代码就可能读到服务进程的环境变量、扫描同机其他任务的文件，或者向外部地址发请求。即使这段代码看上去只是 `pandas.read_csv()`，它导入的包、安装脚本和运行中生成的命令也可能做额外的事。这里的危险不是“模型一定恶意”，而是平台把来源不可信的代码交给了有权限的计算机。
+假设用户给一个数据分析 Agent 上传了 `sales.csv`，请它写段 Python，算出每月销售额并画图。这里的 Agent 是接收任务、让模型提出代码、再由程序调用执行工具的应用。模型生成代码，工具也准备执行了。若平台直接在运行 Agent 服务的机器上调用 Python，代码就可能读到服务进程的环境变量、扫描同机其他任务的文件，或者向外部地址发请求。即使这段代码看上去只是 `pandas.read_csv()`，它导入的包、安装脚本和运行中生成的命令也可能做额外的事。这里的危险不是“模型一定恶意”，而是平台把来源不可信的代码交给了有权限的计算机。
 
 Agent Runtime 是承担任务执行的程序和基础设施：它保存当前任务与工具调用的对应关系，准备运行环境，把允许的输入送进去，取回结果，处理超时、恢复与回收。沙箱（sandbox）则是这条链中执行不可信代码的受限环境。两者不是同义词。Runtime 可以调度多个沙箱；沙箱自己也不知道用户到底批准了什么业务动作。下文的 `sales.csv`、任务编号 A17、运行时间和输出均为教学假设，没有运行真实服务。[E2B 对代码执行沙箱用途的说明](https://e2b.dev/llms.txt)
 
@@ -18,7 +18,7 @@ Runtime 通常要为这次运行设资源预算：CPU、内存、磁盘空间、
 
 “放进容器”常常是第一反应。容器的文件系统、进程和网络命名空间可以分开，部署也方便；但普通容器仍与宿主共享 Linux 内核。gVisor 的官方说明明确说，单靠容器并不等于适合执行不可信代码的沙箱。gVisor 提供用户态的 application kernel，让应用的许多 Linux 系统调用先经过这层实现，再访问宿主内核；它的 `runsc` 可接入现有容器工具。它也明确说明自己既不是普通 syscall 过滤器，也不是传统虚拟机。[gVisor 官方 README](https://github.com/google/gvisor/blob/master/README.md)
 
-另一种路径是 microVM。Firecracker 用 KVM 创建轻量虚拟机，客户代码在 guest 内运行。Firecracker 的设计文档把 guest 线程视为潜在恶意代码，并在 VM 边界之外再使用 seccomp、namespace、cgroup 和 `jailer` 约束 Firecracker 进程。它要求生产部署经 `jailer` 启动；这提醒我们：选了 microVM 仍要管理宿主进程、镜像和资源。[Firecracker Design：Host Integration、Threat Containment 与 Sandboxing](https://github.com/firecracker-microvm/firecracker/blob/main/docs/design.md)
+另一种路径是 microVM，即按任务启动的轻量虚拟机。Firecracker 用 KVM 创建轻量虚拟机，客户代码在 guest（虚拟机内部）运行。Firecracker 的设计文档把 guest 线程视为潜在恶意代码，并在 VM 边界之外再使用 seccomp、namespace、cgroup 和 `jailer` 约束 Firecracker 进程。这些名称在此都属于宿主侧的进一步隔离措施；理解本例先抓住“代码在虚拟机内，但管理虚拟机的进程仍在宿主上”。Firecracker 要求生产部署经 `jailer` 启动；选了 microVM 仍要管理宿主进程、镜像和资源。[Firecracker Design：Host Integration、Threat Containment 与 Sandboxing](https://github.com/firecracker-microvm/firecracker/blob/main/docs/design.md)
 
 两者不是“安全”和“不安全”的简单排名。要看代码对系统调用与内核功能的兼容要求、启动和运行成本、要隔离的租户是谁、故障后如何追踪，以及团队是否有能力维护宿主。gVisor 可能遇到某些 Linux 行为的兼容问题；microVM 需要准备 guest 内核、磁盘和网络。E2B 是更高一层的托管沙箱产品，文档展示了创建、连接、暂停、恢复、销毁等接口；产品 API 与底层隔离机制也不能混成一个概念。[E2B Sandbox lifecycle](https://docs.e2b.dev/sandbox.md)
 
