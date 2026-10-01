@@ -1271,7 +1271,7 @@
       "otel-genai-metrics",
       "agent-metrics-source-3"
     ],
-    "updated": "2026-09-30"
+    "updated": "2026-10-01"
   },
   {
     "id": "agent-harness-delivery",
