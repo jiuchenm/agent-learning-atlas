@@ -1405,6 +1405,41 @@
         "sandbox-series-source-27"
       ],
       "updated": "2026-10-01"
+    },
+    {
+      "id": "sandbox-frontier",
+      "title": "Agent Sandbox 技术报告：从操作系统隔离到大规模调度",
+      "stage": "agent-platform",
+      "kind": "optional",
+      "prerequisites": [
+        "function-calling"
+      ],
+      "topic": "Agent Sandbox · 2026-10-01 技术综述",
+      "order": 69.6,
+      "summary": "从系统调用、内核和资源限制讲起，理解前沿沙箱及厂商公开的大规模调度。",
+      "goal": "把隔离、管控、状态与大规模调度逐层还原到底层技术",
+      "track": "agent-platform",
+      "minutes": 55,
+      "sourceIds": [
+        "sandbox-series-source-1",
+        "sandbox-series-source-2",
+        "sandbox-series-source-3",
+        "sandbox-series-source-4",
+        "runtime-firecracker-design",
+        "dsec",
+        "frontier-mimo26",
+        "frontier-tangram",
+        "frontier-muse",
+        "frontier-dots",
+        "frontier-claude-managed",
+        "frontier-claude-contain",
+        "frontier-codex-local",
+        "frontier-srt",
+        "frontier-zhihu",
+        "frontier-lightvela",
+        "frontier-arkclaw"
+      ],
+      "updated": "2026-10-01"
     }
   ]
 }

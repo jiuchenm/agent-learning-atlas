@@ -54,5 +54,6 @@
   "agent-protocols",
   "agent-observability",
   "agent-harness-delivery",
-  "runtime-sandbox-series"
+  "runtime-sandbox-series",
+  "sandbox-frontier"
 ]
