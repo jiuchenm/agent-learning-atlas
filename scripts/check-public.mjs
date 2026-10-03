@@ -1,12 +1,18 @@
-import {readFileSync, readdirSync} from 'node:fs';
+import {readFileSync, readdirSync, existsSync} from 'node:fs';
 import {resolve, join} from 'node:path';
 import {pathToFileURL} from 'node:url';
+import {validateEnvelope} from '../src/private-crypto.js';
 
 const restricted = /sharepoint\.com|dev\.azure\.com|visualstudio\.com|M365-Incubation|ai-microsoft|substrate.office|sydney.bing|miaonathan|C:[\\/]Users[\\/]|C:[\\/]M365|confidential|WorkIQ|EntityServe|SkDS|3SQuery/i;
 export function assertPublicText(text, label) {
   if (restricted.test(text)) throw new Error('Restricted reference in ' + label);
 }
 export function checkPublic(root, includeDist = false) {
+  for (const folder of ['public', ...(includeDist ? ['dist'] : [])]) {
+    const encrypted=join(root,folder,'private-library.json');
+    if(existsSync(encrypted))validateEnvelope(JSON.parse(readFileSync(encrypted,'utf8')));
+  }
+  if(existsSync(join(root,'public')))for(const name of readdirSync(join(root,'public')))if(name!=='private-library.json')throw new Error('Unexpected public asset: '+name);
   const read = name => JSON.parse(readFileSync(join(root, name), 'utf8'));
   const catalog = read('content/catalog.json');
   const curriculum = read('content/curriculum.json');
