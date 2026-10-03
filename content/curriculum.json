@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "updated": "2026-10-01",
+  "updated": "2026-10-03",
   "stages": [
     {
       "id": "foundation",
@@ -37,6 +37,12 @@
       "number": "05.5",
       "title": "Agent 平台工程",
       "description": "在单 Agent、检索与评估基础上，理解企业交付、运行环境、协议与观测。"
+    },
+    {
+      "id": "deepseek-harness",
+      "number": "D",
+      "title": "DeepSeek Harness · 四篇",
+      "description": "从本机安装走进执行链、插件架构、状态管理和权限边界。"
     },
     {
       "id": "model",
@@ -1440,6 +1446,98 @@
         "frontier-arkclaw"
       ],
       "updated": "2026-10-01"
+    },
+    {
+      "id": "deepseek-harness-intro",
+      "title": "DeepSeek Harness 入门：它是什么，安装后运行什么",
+      "stage": "deepseek-harness",
+      "kind": "optional",
+      "prerequisites": [
+        "agent-basics"
+      ],
+      "topic": "DeepSeek Harness · 发布版源码剖析",
+      "order": 70,
+      "summary": "分清模型、运行框架、Web 界面和执行环境，沿官方安装与配置开始学习。",
+      "goal": "它是什么，安装后运行什么",
+      "track": "deepseek-harness",
+      "minutes": 28,
+      "sourceIds": [
+        "dsh-readme",
+        "dsh-providers",
+        "dsh-architecture",
+        "dsh-safety"
+      ],
+      "updated": "2026-10-03"
+    },
+    {
+      "id": "deepseek-harness-loop",
+      "title": "DeepSeek Harness 执行链：模型回复怎样变成工具调用",
+      "stage": "deepseek-harness",
+      "kind": "optional",
+      "prerequisites": [
+        "deepseek-harness-intro",
+        "function-calling",
+        "tool-reliability"
+      ],
+      "topic": "DeepSeek Harness · 发布版源码剖析",
+      "order": 71,
+      "summary": "沿请求、流式响应、参数验证、工具执行和结果回填，理解一次 Agent 循环。",
+      "goal": "模型回复怎样变成工具调用",
+      "track": "deepseek-harness",
+      "minutes": 28,
+      "sourceIds": [
+        "dsh-loop",
+        "dsh-tool-pipeline",
+        "dsh-architecture"
+      ],
+      "updated": "2026-10-03"
+    },
+    {
+      "id": "deepseek-harness-plugins",
+      "title": "DeepSeek Harness 插件架构：Cordis 怎样组装一个 Agent",
+      "stage": "deepseek-harness",
+      "kind": "optional",
+      "prerequisites": [
+        "deepseek-harness-loop"
+      ],
+      "topic": "DeepSeek Harness · 发布版源码剖析",
+      "order": 72,
+      "summary": "从服务、事件和生命周期讲起，解释插件树、配置分层、热重载与 MCP 的位置。",
+      "goal": "Cordis 怎样组装一个 Agent",
+      "track": "deepseek-harness",
+      "minutes": 28,
+      "sourceIds": [
+        "dsh-cordis",
+        "dsh-architecture",
+        "dsh-mcp"
+      ],
+      "updated": "2026-10-03"
+    },
+    {
+      "id": "deepseek-harness-state-security",
+      "title": "DeepSeek Harness 长任务：上下文、子 Agent 与权限边界",
+      "stage": "deepseek-harness",
+      "kind": "optional",
+      "prerequisites": [
+        "deepseek-harness-plugins",
+        "compact",
+        "agent-security"
+      ],
+      "topic": "DeepSeek Harness · 发布版源码剖析",
+      "order": 73,
+      "summary": "区分持久日志和模型上下文，拆解压缩、委派、恢复及 Windows 本地沙箱的保障范围。",
+      "goal": "上下文、子 Agent 与权限边界",
+      "track": "deepseek-harness",
+      "minutes": 35,
+      "sourceIds": [
+        "dsh-session",
+        "dsh-compaction",
+        "dsh-subagent",
+        "dsh-sandbox",
+        "dsh-session-upload",
+        "dsh-safety"
+      ],
+      "updated": "2026-10-03"
     }
   ]
 }

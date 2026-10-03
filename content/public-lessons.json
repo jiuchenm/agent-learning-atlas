@@ -55,5 +55,9 @@
   "agent-observability",
   "agent-harness-delivery",
   "runtime-sandbox-series",
-  "sandbox-frontier"
+  "sandbox-frontier",
+  "deepseek-harness-intro",
+  "deepseek-harness-loop",
+  "deepseek-harness-plugins",
+  "deepseek-harness-state-security"
 ]
