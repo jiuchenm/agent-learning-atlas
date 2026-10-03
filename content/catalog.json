@@ -1473,5 +1473,107 @@
       "dsh-safety"
     ],
     "updated": "2026-10-03"
+  },
+  {
+    "id": "agent-security-architecture",
+    "title": "智能体安全架构：Muse、Dots 与腾讯产品怎样划分信任边界",
+    "stage": "agent-security-series",
+    "kind": "optional",
+    "prerequisites": [
+      "agent-security",
+      "function-calling"
+    ],
+    "topic": "桌面与云端智能体安全",
+    "order": 74,
+    "summary": "把模型决策、授权、凭证和执行分别放回架构，按公开证据比较产品的控制范围。",
+    "goal": "Muse、Dots 与腾讯产品怎样划分信任边界",
+    "track": "agent-security-series",
+    "minutes": 40,
+    "sourceIds": [
+      "frontier-muse",
+      "security-1-source-2",
+      "security-1-source-3",
+      "security-1-source-4",
+      "frontier-dots",
+      "security-1-source-6",
+      "security-1-source-7",
+      "security-1-source-8",
+      "security-1-source-9",
+      "security-1-source-10",
+      "sandbox-series-source-24",
+      "sandbox-series-source-25",
+      "sandbox-series-source-26",
+      "security-1-source-14",
+      "security-1-source-15",
+      "security-1-source-16",
+      "security-1-source-17",
+      "security-1-source-18"
+    ],
+    "updated": "2026-10-03"
+  },
+  {
+    "id": "agent-security-primitives",
+    "title": "智能体沙箱底层：虚拟机、容器与内核权限怎样配合",
+    "stage": "agent-security-series",
+    "kind": "optional",
+    "prerequisites": [
+      "agent-security-architecture"
+    ],
+    "topic": "桌面与云端智能体安全",
+    "order": 75,
+    "summary": "从CPU虚拟化和客户机内核讲起，逐层理解Namespace、cgroup、seccomp、capabilities与eBPF。",
+    "goal": "虚拟机、容器与内核权限怎样配合",
+    "track": "agent-security-series",
+    "minutes": 45,
+    "sourceIds": [
+      "sandbox-series-source-1",
+      "security-2-source-2",
+      "security-2-source-3",
+      "sandbox-series-source-2",
+      "sandbox-series-source-3",
+      "security-2-source-6",
+      "security-2-source-7",
+      "security-2-source-8",
+      "sandbox-series-source-7",
+      "sandbox-series-source-8",
+      "security-2-source-11",
+      "security-2-source-12",
+      "security-2-source-13",
+      "security-2-source-14",
+      "sandbox-series-source-4",
+      "security-2-source-16",
+      "security-2-source-17",
+      "frontier-muse",
+      "security-2-source-19",
+      "security-2-source-20",
+      "security-2-source-21"
+    ],
+    "updated": "2026-10-03"
+  },
+  {
+    "id": "agent-permissions-acl",
+    "title": "企业智能体权限：Graph Connector ACL 与检索过滤怎样落地",
+    "stage": "agent-security-series",
+    "kind": "optional",
+    "prerequisites": [
+      "agent-security-primitives",
+      "hybrid-search"
+    ],
+    "topic": "桌面与云端智能体安全",
+    "order": 76,
+    "summary": "沿身份映射、ACL同步和查询解释授权，分清Graph权限契约与向量检索的过滤模式。",
+    "goal": "Graph Connector ACL 与检索过滤怎样落地",
+    "track": "agent-security-series",
+    "minutes": 40,
+    "sourceIds": [
+      "security-3-source-1",
+      "security-3-source-2",
+      "security-3-source-3",
+      "security-3-source-4",
+      "security-3-source-5",
+      "vector-index-source-4",
+      "security-3-source-7"
+    ],
+    "updated": "2026-10-03"
   }
 ]

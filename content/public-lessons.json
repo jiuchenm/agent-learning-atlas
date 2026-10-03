@@ -59,5 +59,8 @@
   "deepseek-harness-intro",
   "deepseek-harness-loop",
   "deepseek-harness-plugins",
-  "deepseek-harness-state-security"
+  "deepseek-harness-state-security",
+  "agent-security-architecture",
+  "agent-security-primitives",
+  "agent-permissions-acl"
 ]
